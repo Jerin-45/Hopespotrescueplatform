@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, MapPin, Phone, FileText, Clock, Shield, User, CheckCircle, AlertCircle } from 'lucide-react';
 import { RescueRequest } from '../App';
+import { DataManager } from './DataManager';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -10,9 +11,11 @@ interface AdminDashboardProps {
     status: RescueRequest['status'],
     rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string }
   ) => void;
+  onClearData: () => void;
+  onImportData: (data: RescueRequest[]) => void;
 }
 
-export function AdminDashboard({ onBack, requests, onUpdateStatus }: AdminDashboardProps) {
+export function AdminDashboard({ onBack, requests, onUpdateStatus, onClearData, onImportData }: AdminDashboardProps) {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [rescuerName, setRescuerName] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | RescueRequest['status']>('all');
@@ -121,6 +124,13 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus }: AdminDashbo
             <p className="text-green-900">{requests.filter((r) => r.status === 'completed').length}</p>
           </div>
         </div>
+
+        {/* Data Management */}
+        <DataManager 
+          requests={requests}
+          onClearData={onClearData}
+          onImportData={onImportData}
+        />
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">

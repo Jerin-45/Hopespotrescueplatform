@@ -22,6 +22,13 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState('');
 
+  // Auto-detect location when form is opened
+  useEffect(() => {
+    if (showForm && !formData.location) {
+      getCurrentLocation();
+    }
+  }, [showForm]);
+
   const getCurrentLocation = () => {
     setLoadingLocation(true);
     setLocationError('');
@@ -235,7 +242,7 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., Highway 101, Mile Marker 45"
+                    placeholder="Auto-detecting your location..."
                   />
                   <button
                     type="button"
@@ -246,18 +253,30 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
                     {loadingLocation ? (
                       <>
                         <Loader className="w-5 h-5 animate-spin" />
-                        <span className="hidden md:inline">Getting...</span>
+                        <span className="hidden md:inline">Detecting...</span>
                       </>
                     ) : (
                       <>
                         <MapPin className="w-5 h-5" />
-                        <span className="hidden md:inline">Use Current</span>
+                        <span className="hidden md:inline">Refresh Location</span>
                       </>
                     )}
                   </button>
                 </div>
+                {loadingLocation && !locationError && (
+                  <p className="text-sm text-blue-600 mt-2 flex items-center gap-2">
+                    <Loader className="w-4 h-4 animate-spin" />
+                    Automatically detecting your current location...
+                  </p>
+                )}
                 {locationError && (
                   <p className="text-sm text-red-600 mt-2">{locationError}</p>
+                )}
+                {formData.location && !loadingLocation && !locationError && (
+                  <p className="text-sm text-green-600 mt-2 flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    Location detected successfully
+                  </p>
                 )}
               </div>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { HelperDashboard } from './components/HelperDashboard';
 import { RescuerDashboard } from './components/RescuerDashboard';
@@ -22,12 +22,21 @@ export interface RescueRequest {
   rescuerNotes?: string;
 }
 
-export default function App() {
-  const [currentRole, setCurrentRole] = useState<UserRole>(null);
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [isRescuerAuthenticated, setIsRescuerAuthenticated] = useState(false);
-  const [currentRescuerName, setCurrentRescuerName] = useState('');
-  const [rescueRequests, setRescueRequests] = useState<RescueRequest[]>([
+const STORAGE_KEY = 'hopespot_rescue_requests';
+
+// Load initial data from localStorage or use demo data
+const getInitialRequests = (): RescueRequest[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading data from localStorage:', error);
+  }
+  
+  // Return demo data if nothing in storage
+  return [
     {
       id: '1',
       helperName: 'John Smith',
@@ -48,7 +57,24 @@ export default function App() {
       assignedRescuer: 'Mike Davis',
       rescuerId: 'r1',
     },
-  ]);
+  ];
+};
+
+export default function App() {
+  const [currentRole, setCurrentRole] = useState<UserRole>(null);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [isRescuerAuthenticated, setIsRescuerAuthenticated] = useState(false);
+  const [currentRescuerName, setCurrentRescuerName] = useState('');
+  const [rescueRequests, setRescueRequests] = useState<RescueRequest[]>(getInitialRequests());
+
+  // Save to localStorage whenever requests change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rescueRequests));
+    } catch (error) {
+      console.error('Error saving data to localStorage:', error);
+    }
+  }, [rescueRequests]);
 
   const handleRoleSelect = (role: UserRole) => {
     setCurrentRole(role);
@@ -119,6 +145,15 @@ export default function App() {
     );
   };
 
+  const clearAllData = () => {
+    setRescueRequests([]);
+    localStorage.removeItem(STORAGE_KEY);
+  };
+
+  const importData = (data: RescueRequest[]) => {
+    setRescueRequests(data);
+  };
+
   if (!currentRole) {
     return <LandingPage onRoleSelect={handleRoleSelect} />;
   }
@@ -156,6 +191,8 @@ export default function App() {
         onBack={handleBack}
         requests={rescueRequests}
         onUpdateStatus={updateRequestStatus}
+        onClearData={clearAllData}
+        onImportData={importData}
       />
     );
   }
