@@ -4,9 +4,10 @@ import { HelperDashboard } from './components/HelperDashboard';
 import { RescuerDashboard } from './components/RescuerDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLogin } from './components/AdminLogin';
-import { RescuerLogin } from './components/RescuerLogin';
+import { RescuerAuth } from './components/RescuerAuth';
+import { ReportDashboard } from './components/ReportDashboard';
 
-export type UserRole = 'helper' | 'rescuer' | 'admin' | null;
+export type UserRole = 'helper' | 'rescuer' | 'admin' | 'reports' | null;
 
 export interface RescueRequest {
   id: string;
@@ -22,7 +23,29 @@ export interface RescueRequest {
   rescuerNotes?: string;
 }
 
+export interface RescuerAccount {
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+  registeredAt: string;
+}
+
 const STORAGE_KEY = 'hopespot_rescue_requests';
+const RESCUERS_STORAGE_KEY = 'hopespot_rescuers';
+
+// Load rescuers from localStorage
+const getStoredRescuers = (): RescuerAccount[] => {
+  try {
+    const stored = localStorage.getItem(RESCUERS_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading rescuers from localStorage:', error);
+  }
+  return [];
+};
 
 // Load initial data from localStorage or use demo data
 const getInitialRequests = (): RescueRequest[] => {
@@ -65,7 +88,9 @@ export default function App() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [isRescuerAuthenticated, setIsRescuerAuthenticated] = useState(false);
   const [currentRescuerName, setCurrentRescuerName] = useState('');
+  const [currentRescuerEmail, setCurrentRescuerEmail] = useState('');
   const [rescueRequests, setRescueRequests] = useState<RescueRequest[]>(getInitialRequests());
+  const [rescuers, setRescuers] = useState<RescuerAccount[]>(getStoredRescuers());
 
   // Save to localStorage whenever requests change
   useEffect(() => {
@@ -75,6 +100,15 @@ export default function App() {
       console.error('Error saving data to localStorage:', error);
     }
   }, [rescueRequests]);
+
+  // Save rescuers to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(RESCUERS_STORAGE_KEY, JSON.stringify(rescuers));
+    } catch (error) {
+      console.error('Error saving rescuers to localStorage:', error);
+    }
+  }, [rescuers]);
 
   const handleRoleSelect = (role: UserRole) => {
     setCurrentRole(role);
@@ -88,6 +122,7 @@ export default function App() {
     if (currentRole === 'rescuer') {
       setIsRescuerAuthenticated(false);
       setCurrentRescuerName('');
+      setCurrentRescuerEmail('');
     }
   };
 
@@ -101,24 +136,41 @@ export default function App() {
     return false;
   };
 
-  const handleRescuerLogin = (rescuerId: string, password: string) => {
-    // Simple authentication check - in production, this would be server-side with proper credentials
-    const rescuerAccounts = [
-      { id: 'rescuer1', password: 'rescue123', name: 'Mike Davis' },
-      { id: 'rescuer2', password: 'rescue123', name: 'Sarah Williams' },
-    ];
-
-    const rescuer = rescuerAccounts.find(
-      (acc) => acc.id === rescuerId && acc.password === password
+  const handleRescuerLogin = (email: string, password: string) => {
+    const rescuer = rescuers.find(
+      (r) => r.email.toLowerCase() === email.toLowerCase() && r.password === password
     );
 
     if (rescuer) {
       setIsRescuerAuthenticated(true);
       setCurrentRescuerName(rescuer.name);
+      setCurrentRescuerEmail(rescuer.email);
       setCurrentRole('rescuer');
-      return true;
+      return { success: true, name: rescuer.name };
     }
-    return false;
+    return { success: false, error: 'Invalid email or password' };
+  };
+
+  const handleRescuerRegister = (email: string, password: string, name: string, phone: string) => {
+    // Check if email already exists
+    const existingRescuer = rescuers.find(
+      (r) => r.email.toLowerCase() === email.toLowerCase()
+    );
+
+    if (existingRescuer) {
+      return { success: false, error: 'Email already registered' };
+    }
+
+    const newRescuer: RescuerAccount = {
+      email: email.toLowerCase(),
+      password,
+      name,
+      phone,
+      registeredAt: new Date().toISOString(),
+    };
+
+    setRescuers([...rescuers, newRescuer]);
+    return { success: true };
   };
 
   const addRescueRequest = (request: Omit<RescueRequest, 'id' | 'timestamp' | 'status'>) => {
@@ -170,7 +222,13 @@ export default function App() {
 
   if (currentRole === 'rescuer') {
     if (!isRescuerAuthenticated) {
-      return <RescuerLogin onLogin={handleRescuerLogin} onBack={handleBack} />;
+      return (
+        <RescuerAuth
+          onLogin={handleRescuerLogin}
+          onRegister={handleRescuerRegister}
+          onBack={handleBack}
+        />
+      );
     }
     return (
       <RescuerDashboard
@@ -178,6 +236,7 @@ export default function App() {
         requests={rescueRequests}
         onUpdateStatus={updateRequestStatus}
         rescuerName={currentRescuerName}
+        rescuerEmail={currentRescuerEmail}
       />
     );
   }
@@ -193,6 +252,15 @@ export default function App() {
         onUpdateStatus={updateRequestStatus}
         onClearData={clearAllData}
         onImportData={importData}
+      />
+    );
+  }
+
+  if (currentRole === 'reports') {
+    return (
+      <ReportDashboard
+        onBack={handleBack}
+        requests={rescueRequests}
       />
     );
   }

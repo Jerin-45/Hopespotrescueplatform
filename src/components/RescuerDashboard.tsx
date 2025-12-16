@@ -11,9 +11,10 @@ interface RescuerDashboardProps {
     rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string }
   ) => void;
   rescuerName: string;
+  rescuerEmail: string;
 }
 
-export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName }: RescuerDashboardProps) {
+export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName, rescuerEmail }: RescuerDashboardProps) {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [rescuerNotes, setRescuerNotes] = useState('');
 

@@ -1,4 +1,4 @@
-import { Heart, Users, Shield, MapPin, Clock, CheckCircle } from 'lucide-react';
+import { Heart, Users, Shield, MapPin, Clock, CheckCircle, FileText } from 'lucide-react';
 import { UserRole } from '../App';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
@@ -36,6 +36,12 @@ export function LandingPage({ onRoleSelect }: LandingPageProps) {
               className="bg-red-700 text-white px-8 py-4 rounded-lg hover:bg-red-800 transition-colors shadow-lg border-2 border-white"
             >
               I'm a Rescuer
+            </button>
+            <button
+              onClick={() => onRoleSelect('reports')}
+              className="bg-blue-700 text-white px-8 py-4 rounded-lg hover:bg-blue-800 transition-colors shadow-lg border-2 border-white"
+            >
+              View Reports
             </button>
             <button
               onClick={() => onRoleSelect('admin')}
