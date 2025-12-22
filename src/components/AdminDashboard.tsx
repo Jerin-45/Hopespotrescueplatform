@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, MapPin, Phone, FileText, Clock, Shield, User, CheckCircle, AlertCircle } from 'lucide-react';
 import { RescueRequest } from '../App';
 import { DataManager } from './DataManager';
+import { Header } from './Header';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -80,7 +81,9 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, onClearData, 
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      <Header variant="dark" />
+      
+      {/* Page Header */}
       <div className="bg-gray-900 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
           <button
@@ -88,13 +91,13 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, onClearData, 
             className="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back to Home</span>
+            <span>Back</span>
           </button>
           <div className="flex items-center gap-3 mb-2">
             <Shield className="w-8 h-8" />
-            <h1 className="text-white">Admin Dashboard</h1>
+            <h2 className="text-white">Admin Dashboard</h2>
           </div>
-          <p className="text-gray-300 mt-2">Oversee and manage all rescue operations</p>
+          <p className="text-gray-300">Manage and oversee all rescue operations</p>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Shield, Lock, User, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Header } from './Header';
 
 interface AdminLoginProps {
   onLogin: (adminId: string, password: string) => boolean;

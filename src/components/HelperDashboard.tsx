@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, MapPin, Phone, FileText, Image, Clock, Upload, Loader } from 'lucide-react';
 import { RescueRequest } from '../App';
+import { Header } from './Header';
 
 interface HelperDashboardProps {
   onBack: () => void;
@@ -153,18 +154,20 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-blue-600 text-white p-6 shadow-lg">
+      <Header variant="gradient" />
+      
+      {/* Page Header */}
+      <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
           <button
             onClick={onBack}
             className="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back to Home</span>
+            <span>Back</span>
           </button>
-          <h1 className="text-white">Helper Dashboard</h1>
-          <p className="text-blue-100 mt-2">Submit and track rescue requests</p>
+          <h2 className="text-white mb-2">Helper Dashboard</h2>
+          <p className="text-red-100">Submit and track rescue requests</p>
         </div>
       </div>
 

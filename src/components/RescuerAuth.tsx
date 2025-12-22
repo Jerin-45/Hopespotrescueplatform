@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowLeft, Mail, Lock, User, Shield } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, User, Shield, Heart, Phone } from 'lucide-react';
+import { Header } from './Header';
 
 interface RescuerAuthProps {
   onLogin: (email: string, password: string) => { success: boolean; name?: string; error?: string };
@@ -105,7 +106,7 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
                     <span>Phone Number</span>
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type="tel"
                       value={phone}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, MapPin, Phone, FileText, Clock, CheckCircle, Navigation } from 'lucide-react';
 import { RescueRequest } from '../App';
+import { Header } from './Header';
 
 interface RescuerDashboardProps {
   onBack: () => void;
@@ -88,18 +89,20 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-red-600 text-white p-6 shadow-lg">
+      <Header variant="gradient" />
+      
+      {/* Page Header */}
+      <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
           <button
             onClick={onBack}
             className="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back to Home</span>
+            <span>Back</span>
           </button>
-          <h1 className="text-white">Rescuer Dashboard</h1>
-          <p className="text-red-100 mt-2">Welcome, {rescuerName} - View and respond to active rescue requests</p>
+          <h2 className="text-white mb-2">Rescuer Dashboard</h2>
+          <p className="text-red-100">Welcome, {rescuerName}</p>
         </div>
       </div>
 

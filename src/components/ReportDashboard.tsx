@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { ArrowLeft, Search, Download, Calendar, MapPin, User, Phone, FileText, Clock, Filter, TrendingUp, CheckCircle, AlertCircle, Users, Award } from 'lucide-react';
 import { RescueRequest } from '../App';
+import { Header } from './Header';
 
 interface ReportDashboardProps {
   onBack: () => void;
@@ -245,7 +246,9 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      <Header variant="blue" />
+      
+      {/* Page Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
           <button
@@ -257,16 +260,18 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
           </button>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-white mb-2">Reports & Analytics</h1>
+              <h2 className="text-white mb-2">Reports & Analytics</h2>
               <p className="text-blue-100">Comprehensive rescue case reports and statistics</p>
             </div>
-            <button
-              onClick={handleExportReport}
-              className="flex items-center gap-2 bg-white text-blue-600 px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors"
-            >
-              <Download className="w-5 h-5" />
-              <span>Export Report</span>
-            </button>
+            {viewMode === 'cases' && (
+              <button
+                onClick={handleExportReport}
+                className="flex items-center gap-2 bg-white text-blue-600 px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                <Download className="w-5 h-5" />
+                <span>Export Report</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
