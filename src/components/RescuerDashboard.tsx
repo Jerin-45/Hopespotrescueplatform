@@ -174,7 +174,10 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
                       <Phone className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                       <div>
                         <p className="text-sm text-gray-500">Helper Contact</p>
-                        <p className="text-gray-900">{request.helperName} - {request.helperPhone}</p>
+                        <p className="text-gray-900">{request.helperName}</p>
+                        <p className="text-gray-900">{request.helperPhone}</p>
+                        {request.helperAltPhone && <p className="text-gray-900 text-sm">Alt: {request.helperAltPhone}</p>}
+                        {request.helperEmail && <p className="text-gray-900 text-sm">{request.helperEmail}</p>}
                       </div>
                     </div>
 

@@ -13,6 +13,8 @@ export interface RescueRequest {
   id: string;
   helperName: string;
   helperPhone: string;
+  helperAltPhone?: string;
+  helperEmail?: string;
   location: string;
   photoUrl?: string;
   notes: string;

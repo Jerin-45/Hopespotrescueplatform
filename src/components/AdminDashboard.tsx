@@ -253,6 +253,8 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, onClearData, 
                         <div>
                           <p className="text-sm text-gray-500">Phone</p>
                           <p className="text-gray-900">{request.helperPhone}</p>
+                          {request.helperAltPhone && <p className="text-gray-900 text-sm mt-1">Alt: {request.helperAltPhone}</p>}
+                          {request.helperEmail && <p className="text-gray-900 text-sm">{request.helperEmail}</p>}
                         </div>
                       </div>
                     </div>

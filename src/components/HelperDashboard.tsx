@@ -14,6 +14,8 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
   const [formData, setFormData] = useState({
     helperName: '',
     helperPhone: '',
+    helperAltPhone: '',
+    helperEmail: '',
     location: '',
     photoUrl: '',
     notes: '',
@@ -94,6 +96,8 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
     setFormData({
       helperName: '',
       helperPhone: '',
+      helperAltPhone: '',
+      helperEmail: '',
       location: '',
       photoUrl: '',
       notes: '',
@@ -234,8 +238,40 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
               <div>
                 <label className="block text-gray-700 mb-2">
                   <div className="flex items-center gap-2">
+                    <Phone className="w-5 h-5" />
+                    <span>Alternative Phone Number (Optional)</span>
+                  </div>
+                </label>
+                <input
+                  type="tel"
+                  value={formData.helperAltPhone}
+                  onChange={(e) => setFormData({ ...formData, helperAltPhone: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="+1234567890"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 mb-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    <span>Email Address (Optional)</span>
+                  </div>
+                </label>
+                <input
+                  type="email"
+                  value={formData.helperEmail}
+                  onChange={(e) => setFormData({ ...formData, helperEmail: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 mb-2">
+                  <div className="flex items-center gap-2">
                     <MapPin className="w-5 h-5" />
-                    <span>Exact Location</span>
+                    <span>Incident Address</span>
                   </div>
                 </label>
                 <div className="flex gap-2">
@@ -391,6 +427,26 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
                         <p className="text-gray-900">{request.helperPhone}</p>
                       </div>
                     </div>
+
+                    {request.helperAltPhone && (
+                      <div className="flex items-start gap-2">
+                        <Phone className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm text-gray-500">Alt. Phone</p>
+                          <p className="text-gray-900">{request.helperAltPhone}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {request.helperEmail && (
+                      <div className="flex items-start gap-2">
+                        <FileText className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm text-gray-500">Email</p>
+                          <p className="text-gray-900">{request.helperEmail}</p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-start gap-2">
                       <FileText className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
