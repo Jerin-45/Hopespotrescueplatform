@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, MapPin, Phone, FileText, Clock, CheckCircle, Navigation } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, FileText, Clock, CheckCircle, Navigation, X } from 'lucide-react';
 import { RescueRequest } from '../App';
 import { Header } from './Header';
 
@@ -19,6 +19,15 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [rescuerNotes, setRescuerNotes] = useState('');
 
+  // Extract rescuer ID from email (e.g., "jerin-r1" from email)
+  const getRescuerId = () => {
+    // Look for the rescuer ID pattern in the rescuerEmail
+    const match = rescuerEmail.match(/rescuer(\d+)/);
+    return match ? `R${match[1]}` : '';
+  };
+
+  const rescuerId = getRescuerId();
+
   // Filter requests that are available or assigned to this rescuer
   const availableRequests = requests.filter(
     (req) => req.status === 'pending' || req.status === 'assigned' || req.status === 'on-the-way' || req.status === 'reached'
@@ -26,17 +35,25 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
 
   const handleAcceptCase = (id: string) => {
     onUpdateStatus(id, 'assigned', {
-      rescuerId: rescuerName,
+      rescuerId: rescuerId,
       assignedRescuer: rescuerName,
     });
     setSelectedRequest(id);
+  };
+
+  const handleRejectCase = (id: string) => {
+    // Reset case back to pending for other rescuers
+    onUpdateStatus(id, 'pending', {
+      rescuerId: '',
+      assignedRescuer: '',
+    });
   };
 
   const handleUpdateStatus = (id: string, status: RescueRequest['status']) => {
     const request = requests.find((r) => r.id === id);
     if (request) {
       onUpdateStatus(id, status, {
-        rescuerId: request.rescuerId || rescuerName,
+        rescuerId: request.rescuerId || rescuerId,
         assignedRescuer: request.assignedRescuer || rescuerName,
       });
     }
@@ -46,7 +63,7 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
     const request = requests.find((r) => r.id === id);
     if (request && rescuerNotes) {
       onUpdateStatus(id, 'completed', {
-        rescuerId: request.rescuerId || rescuerName,
+        rescuerId: request.rescuerId || rescuerId,
         assignedRescuer: request.assignedRescuer || rescuerName,
         rescuerNotes,
       });
@@ -101,7 +118,14 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
             <ArrowLeft className="w-5 h-5" />
             <span>Back</span>
           </button>
-          <h2 className="text-white mb-2">Rescuer Dashboard</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-white mb-2">Rescuer Dashboard</h2>
+            {rescuerId && (
+              <span className="bg-white/20 px-4 py-1 rounded-full text-white mb-2">
+                {rescuerId}
+              </span>
+            )}
+          </div>
           <p className="text-red-100">Welcome, {rescuerName}</p>
         </div>
       </div>
@@ -204,13 +228,22 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
                   {/* Action Buttons */}
                   <div className="space-y-3">
                     {request.status === 'pending' && (
-                      <button
-                        onClick={() => handleAcceptCase(request.id)}
-                        className="w-full bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <CheckCircle className="w-5 h-5" />
-                        <span>Accept This Case</span>
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleAcceptCase(request.id)}
+                          className="w-full bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                          <span>Accept This Case</span>
+                        </button>
+                        <button
+                          onClick={() => handleRejectCase(request.id)}
+                          className="w-full bg-gray-500 text-white py-3 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <X className="w-5 h-5" />
+                          <span>Reject This Case</span>
+                        </button>
+                      </div>
                     )}
 
                     {request.status === 'assigned' && (

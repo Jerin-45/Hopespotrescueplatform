@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { ArrowLeft, MapPin, Phone, FileText, Clock, Shield, User, CheckCircle, AlertCircle } from 'lucide-react';
-import { RescueRequest } from '../App';
-import { DataManager } from './DataManager';
+import { ArrowLeft, MapPin, Phone, FileText, Clock, Shield, User, CheckCircle, AlertCircle, BarChart3, Users, Mail, MapPinned } from 'lucide-react';
+import { RescueRequest, RescuerAccount } from '../App';
 import { Header } from './Header';
+import { ReportDashboard } from './ReportDashboard';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -12,23 +12,148 @@ interface AdminDashboardProps {
     status: RescueRequest['status'],
     rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string }
   ) => void;
-  onClearData: () => void;
-  onImportData: (data: RescueRequest[]) => void;
+  rescuers: RescuerAccount[];
 }
 
-export function AdminDashboard({ onBack, requests, onUpdateStatus, onClearData, onImportData }: AdminDashboardProps) {
+export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: AdminDashboardProps) {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
-  const [rescuerName, setRescuerName] = useState('');
+  const [selectedRescuerId, setSelectedRescuerId] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | RescueRequest['status']>('all');
+  const [showReports, setShowReports] = useState(false);
+  const [showRescuerDirectory, setShowRescuerDirectory] = useState(false);
+
+  // Show reports view if requested
+  if (showReports) {
+    return <ReportDashboard onBack={() => setShowReports(false)} requests={requests} />;
+  }
+
+  // Show rescuer directory if requested
+  if (showRescuerDirectory) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header variant="dark" />
+        
+        {/* Page Header */}
+        <div className="bg-gray-900 text-white p-6 shadow-lg">
+          <div className="max-w-7xl mx-auto">
+            <button
+              onClick={() => setShowRescuerDirectory(false)}
+              className="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back to Dashboard</span>
+            </button>
+            <div className="flex items-center gap-3 mb-2">
+              <Users className="w-8 h-8" />
+              <h2 className="text-white">Rescuer Directory</h2>
+            </div>
+            <p className="text-gray-300">View all registered rescuers and their information</p>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="mb-6 bg-white rounded-lg shadow p-4">
+            <p className="text-gray-700">
+              <strong>Total Rescuers:</strong> {rescuers.length}
+            </p>
+          </div>
+
+          <div className="grid gap-6">
+            {rescuers.map((rescuer) => (
+              <div
+                key={rescuer.id}
+                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-red-100 p-3 rounded-full">
+                      <User className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-gray-900">{rescuer.name}</h3>
+                      <span className="inline-block mt-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                        {rescuer.id.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">Registered</p>
+                    <p className="text-gray-900 text-sm">
+                      {new Date(rescuer.registeredAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Phone className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-gray-500">Phone Number</p>
+                        <p className="text-gray-900">{rescuer.phone}</p>
+                        {rescuer.altPhone && (
+                          <p className="text-gray-600 text-sm mt-1">Alt: {rescuer.altPhone}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <Mail className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-gray-500">Email Address</p>
+                        <p className="text-gray-900">{rescuer.email}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <MapPinned className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-gray-500">Address</p>
+                        <p className="text-gray-900">{rescuer.address}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex gap-2">
+                    <a
+                      href={`tel:${rescuer.phone}`}
+                      className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Phone className="w-4 h-4" />
+                      <span>Call</span>
+                    </a>
+                    <a
+                      href={`mailto:${rescuer.email}`}
+                      className="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Mail className="w-4 h-4" />
+                      <span>Email</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleAssignRescuer = (id: string) => {
-    if (rescuerName.trim()) {
-      onUpdateStatus(id, 'assigned', {
-        rescuerId: Date.now().toString(),
-        assignedRescuer: rescuerName,
-      });
-      setRescuerName('');
-      setSelectedRequest(null);
+    if (selectedRescuerId) {
+      const rescuer = rescuers.find(r => r.id === selectedRescuerId);
+      if (rescuer) {
+        onUpdateStatus(id, 'assigned', {
+          rescuerId: rescuer.id,
+          assignedRescuer: rescuer.id.toUpperCase(),
+        });
+        setSelectedRescuerId('');
+        setSelectedRequest(null);
+      }
     }
   };
 
@@ -86,13 +211,31 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, onClearData, 
       {/* Page Header */}
       <div className="bg-gray-900 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
-          </button>
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back</span>
+            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowRescuerDirectory(true)}
+                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <Users className="w-5 h-5" />
+                <span>Rescuer Directory</span>
+              </button>
+              <button
+                onClick={() => setShowReports(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span>View Reports</span>
+              </button>
+            </div>
+          </div>
           <div className="flex items-center gap-3 mb-2">
             <Shield className="w-8 h-8" />
             <h2 className="text-white">Admin Dashboard</h2>
@@ -127,13 +270,6 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, onClearData, 
             <p className="text-green-900">{requests.filter((r) => r.status === 'completed').length}</p>
           </div>
         </div>
-
-        {/* Data Management */}
-        <DataManager 
-          requests={requests}
-          onClearData={onClearData}
-          onImportData={onImportData}
-        />
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
@@ -311,30 +447,44 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, onClearData, 
                     {request.status === 'pending' && (
                       <div>
                         {selectedRequest === request.id ? (
-                          <div className="flex gap-3">
-                            <input
-                              type="text"
-                              value={rescuerName}
-                              onChange={(e) => setRescuerName(e.target.value)}
-                              placeholder="Enter rescuer name"
-                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            <button
-                              onClick={() => handleAssignRescuer(request.id)}
-                              disabled={!rescuerName.trim()}
-                              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                            >
-                              Assign
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedRequest(null);
-                                setRescuerName('');
-                              }}
-                              className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors"
-                            >
-                              Cancel
-                            </button>
+                          <div className="space-y-3">
+                            <div className="flex gap-3">
+                              <select
+                                value={selectedRescuerId}
+                                onChange={(e) => setSelectedRescuerId(e.target.value)}
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              >
+                                <option value="">Select a rescuer</option>
+                                {rescuers.filter(r => r.id).map(rescuer => (
+                                  <option key={rescuer.id} value={rescuer.id}>
+                                    {rescuer.id.toUpperCase()}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => handleAssignRescuer(request.id)}
+                                disabled={!selectedRescuerId}
+                                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                              >
+                                Assign
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedRequest(null);
+                                  setSelectedRescuerId('');
+                                }}
+                                className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                            {selectedRescuerId && (
+                              <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p className="text-blue-900">
+                                  {rescuers.find(r => r.id === selectedRescuerId)?.id.toUpperCase()} - {rescuers.find(r => r.id === selectedRescuerId)?.name}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <button

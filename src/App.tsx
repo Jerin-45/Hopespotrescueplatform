@@ -7,7 +7,7 @@ import { AdminLogin } from './components/AdminLogin';
 import { RescuerAuth } from './components/RescuerAuth';
 import { ReportDashboard } from './components/ReportDashboard';
 
-export type UserRole = 'helper' | 'rescuer' | 'admin' | 'reports' | null;
+export type UserRole = 'helper' | 'rescuer' | 'admin' | null;
 
 export interface RescueRequest {
   id: string;
@@ -26,11 +26,14 @@ export interface RescueRequest {
 }
 
 export interface RescuerAccount {
+  id: string;
   email: string;
   password: string;
   name: string;
   phone: string;
+  address: string;
   registeredAt: string;
+  altPhone?: string;
 }
 
 const STORAGE_KEY = 'hopespot_rescue_requests';
@@ -41,12 +44,76 @@ const getStoredRescuers = (): RescuerAccount[] => {
   try {
     const stored = localStorage.getItem(RESCUERS_STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsedRescuers = JSON.parse(stored);
+      // Check if all rescuers have the 'id' field - if not, reset to defaults
+      const allHaveIds = parsedRescuers.every((r: any) => r.id);
+      if (allHaveIds) {
+        return parsedRescuers;
+      }
+      // Clear old data and use defaults
+      localStorage.removeItem(RESCUERS_STORAGE_KEY);
     }
   } catch (error) {
     console.error('Error loading rescuers from localStorage:', error);
   }
-  return [];
+  
+  // Return 6 pre-registered rescuers if nothing in storage
+  return [
+    {
+      id: 'jerin-r1',
+      email: 'rescuer1@hopespot.com',
+      password: 'rescue123',
+      name: 'Jerin',
+      phone: '+1234567801',
+      address: '123 Oak Street, Downtown District',
+      registeredAt: new Date(Date.now() - 86400000 * 30).toISOString(),
+    },
+    {
+      id: 'kumar-r2',
+      email: 'rescuer2@hopespot.com',
+      password: 'rescue456',
+      name: 'Kumar',
+      phone: '+1234567802',
+      address: '456 Elm Avenue, North Side',
+      registeredAt: new Date(Date.now() - 86400000 * 25).toISOString(),
+    },
+    {
+      id: 'james-r3',
+      email: 'rescuer3@hopespot.com',
+      password: 'rescue789',
+      name: 'James',
+      phone: '+1234567803',
+      address: '789 Pine Road, East End',
+      registeredAt: new Date(Date.now() - 86400000 * 20).toISOString(),
+    },
+    {
+      id: 'emily-r4',
+      email: 'rescuer4@hopespot.com',
+      password: 'rescue321',
+      name: 'Emily',
+      phone: '+1234567804',
+      address: '321 Maple Lane, West Hills',
+      registeredAt: new Date(Date.now() - 86400000 * 15).toISOString(),
+    },
+    {
+      id: 'david-r5',
+      email: 'rescuer5@hopespot.com',
+      password: 'rescue654',
+      name: 'David',
+      phone: '+1234567805',
+      address: '654 Cedar Boulevard, South Valley',
+      registeredAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+    },
+    {
+      id: 'lisa-r6',
+      email: 'rescuer6@hopespot.com',
+      password: 'rescue987',
+      name: 'Lisa',
+      phone: '+1234567806',
+      address: '987 Birch Street, Central Park Area',
+      registeredAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+    },
+  ];
 };
 
 // Load initial data from localStorage or use demo data
@@ -79,8 +146,8 @@ const getInitialRequests = (): RescueRequest[] => {
       notes: 'Person with injured leg, needs immediate assistance',
       status: 'assigned',
       timestamp: new Date(Date.now() - 7200000).toISOString(),
-      assignedRescuer: 'Mike Davis',
-      rescuerId: 'r1',
+      assignedRescuer: 'JERIN-R1',
+      rescuerId: 'jerin-r1',
     },
   ];
 };
@@ -153,7 +220,7 @@ export default function App() {
     return { success: false, error: 'Invalid email or password' };
   };
 
-  const handleRescuerRegister = (email: string, password: string, name: string, phone: string) => {
+  const handleRescuerRegister = (email: string, password: string, name: string, phone: string, address: string) => {
     // Check if email already exists
     const existingRescuer = rescuers.find(
       (r) => r.email.toLowerCase() === email.toLowerCase()
@@ -164,10 +231,12 @@ export default function App() {
     }
 
     const newRescuer: RescuerAccount = {
+      id: Date.now().toString(),
       email: email.toLowerCase(),
       password,
       name,
       phone,
+      address,
       registeredAt: new Date().toISOString(),
     };
 
@@ -252,17 +321,7 @@ export default function App() {
         onBack={handleBack}
         requests={rescueRequests}
         onUpdateStatus={updateRequestStatus}
-        onClearData={clearAllData}
-        onImportData={importData}
-      />
-    );
-  }
-
-  if (currentRole === 'reports') {
-    return (
-      <ReportDashboard
-        onBack={handleBack}
-        requests={rescueRequests}
+        rescuers={rescuers}
       />
     );
   }

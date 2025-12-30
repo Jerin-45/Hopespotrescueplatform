@@ -38,12 +38,6 @@ export function LandingPage({ onRoleSelect }: LandingPageProps) {
               I'm a Rescuer
             </button>
             <button
-              onClick={() => onRoleSelect('reports')}
-              className="bg-blue-700 text-white px-8 py-4 rounded-lg hover:bg-blue-800 transition-colors shadow-lg border-2 border-white"
-            >
-              View Reports
-            </button>
-            <button
               onClick={() => onRoleSelect('admin')}
               className="bg-gray-900 text-white px-8 py-4 rounded-lg hover:bg-gray-800 transition-colors shadow-lg"
             >

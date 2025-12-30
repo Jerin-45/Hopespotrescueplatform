@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { ArrowLeft, Mail, Lock, User, Shield, Heart, Phone } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, User, Shield, Heart, Phone, MapPin } from 'lucide-react';
 import { Header } from './Header';
 
 interface RescuerAuthProps {
   onLogin: (email: string, password: string) => { success: boolean; name?: string; error?: string };
-  onRegister: (email: string, password: string, name: string, phone: string) => { success: boolean; error?: string };
+  onRegister: (email: string, password: string, name: string, phone: string, address: string) => { success: boolean; error?: string };
   onBack: () => void;
 }
 
@@ -14,6 +14,7 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -36,12 +37,16 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
         setError('Please enter your phone number');
         return;
       }
+      if (!address.trim()) {
+        setError('Please enter your address');
+        return;
+      }
       if (password.length < 6) {
         setError('Password must be at least 6 characters');
         return;
       }
 
-      const result = onRegister(email, password, name, phone);
+      const result = onRegister(email, password, name, phone, address);
       if (!result.success) {
         setError(result.error || 'Registration failed');
       } else {
@@ -117,6 +122,23 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-gray-700 mb-2">
+                    <span>Address</span>
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      placeholder="Enter your address"
+                      required
+                    />
+                  </div>
+                </div>
               </>
             )}
 
@@ -177,6 +199,7 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
                 setPassword('');
                 setName('');
                 setPhone('');
+                setAddress('');
               }}
               className="text-red-600 hover:text-red-700 transition-colors"
             >
