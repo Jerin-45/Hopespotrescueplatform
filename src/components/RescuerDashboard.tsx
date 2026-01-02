@@ -120,11 +120,6 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
           </button>
           <div className="flex items-center gap-3">
             <h2 className="text-white mb-2">Rescuer Dashboard</h2>
-            {rescuerId && (
-              <span className="bg-white/20 px-4 py-1 rounded-full text-white mb-2">
-                {rescuerId}
-              </span>
-            )}
           </div>
           <p className="text-red-100">Welcome, {rescuerName}</p>
         </div>

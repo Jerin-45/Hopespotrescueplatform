@@ -29,11 +29,12 @@ export interface RescuerAccount {
   id: string;
   email: string;
   password: string;
-  name: string;
-  phone: string;
-  address: string;
+  name?: string;
+  phone?: string;
+  address?: string;
   registeredAt: string;
   altPhone?: string;
+  profileComplete?: boolean;
 }
 
 const STORAGE_KEY = 'hopespot_rescue_requests';
@@ -205,14 +206,14 @@ export default function App() {
     return false;
   };
 
-  const handleRescuerLogin = (email: string, password: string) => {
+  const handleRescuerLogin = (identifier: string, password: string) => {
     const rescuer = rescuers.find(
-      (r) => r.email.toLowerCase() === email.toLowerCase() && r.password === password
+      (r) => r.email.toLowerCase() === identifier.toLowerCase() && r.password === password
     );
 
     if (rescuer) {
       setIsRescuerAuthenticated(true);
-      setCurrentRescuerName(rescuer.name);
+      setCurrentRescuerName(rescuer.name || '');
       setCurrentRescuerEmail(rescuer.email);
       setCurrentRole('rescuer');
       return { success: true, name: rescuer.name };
@@ -275,6 +276,29 @@ export default function App() {
 
   const importData = (data: RescueRequest[]) => {
     setRescueRequests(data);
+  };
+
+  const handleAddRescuer = (rescuer: RescuerAccount) => {
+    // Check if rescuer ID already exists
+    const existingRescuer = rescuers.find(
+      (r) => r.id.toLowerCase() === rescuer.id.toLowerCase()
+    );
+    
+    if (existingRescuer) {
+      return { success: false, error: 'Rescuer ID already exists' };
+    }
+
+    // Check if email already exists
+    const existingEmail = rescuers.find(
+      (r) => r.email.toLowerCase() === rescuer.email.toLowerCase()
+    );
+    
+    if (existingEmail) {
+      return { success: false, error: 'Email already registered' };
+    }
+
+    setRescuers([...rescuers, rescuer]);
+    return { success: true };
   };
 
   if (!currentRole) {
