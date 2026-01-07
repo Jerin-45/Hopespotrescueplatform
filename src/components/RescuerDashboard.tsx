@@ -9,7 +9,7 @@ interface RescuerDashboardProps {
   onUpdateStatus: (
     id: string,
     status: RescueRequest['status'],
-    rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string }
+    rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string; trackingId?: string }
   ) => void;
   rescuerName: string;
   rescuerEmail: string;
@@ -30,14 +30,15 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
 
   // Filter requests that are available or assigned to this rescuer
   const availableRequests = requests.filter(
-    (req) => req.status === 'pending' || req.status === 'assigned' || req.status === 'on-the-way' || req.status === 'reached'
+    (req) => req.status === 'pending' || req.status === 'assigned' || req.status === 'accepted' || req.status === 'on-the-way' || req.status === 'reached'
   );
 
   const handleAcceptCase = (id: string) => {
-    onUpdateStatus(id, 'assigned', {
+    onUpdateStatus(id, 'accepted', {
       rescuerId: rescuerId,
       assignedRescuer: rescuerName,
     });
+    setRescuerNotes('');
     setSelectedRequest(id);
   };
 
@@ -62,10 +63,14 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
   const handleCompleteRescue = (id: string) => {
     const request = requests.find((r) => r.id === id);
     if (request && rescuerNotes) {
+      // Generate a tracking ID automatically
+      const generatedTrackingId = `TRK-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+      
       onUpdateStatus(id, 'completed', {
         rescuerId: request.rescuerId || rescuerId,
         assignedRescuer: request.assignedRescuer || rescuerName,
         rescuerNotes,
+        trackingId: generatedTrackingId,
       });
       setRescuerNotes('');
       setSelectedRequest(null);
@@ -78,6 +83,8 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
         return 'bg-yellow-100 text-yellow-800';
       case 'assigned':
         return 'bg-blue-100 text-blue-800';
+      case 'accepted':
+        return 'bg-indigo-100 text-indigo-800';
       case 'on-the-way':
         return 'bg-purple-100 text-purple-800';
       case 'reached':
@@ -118,10 +125,13 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
             <ArrowLeft className="w-5 h-5" />
             <span>Back</span>
           </button>
+          <h2 className="text-white mb-2">Rescuer Dashboard</h2>
           <div className="flex items-center gap-3">
-            <h2 className="text-white mb-2">Rescuer Dashboard</h2>
+            <p className="text-red-100">
+              {rescuerId && <span className="font-semibold">{rescuerId} - </span>}
+              {rescuerName}
+            </p>
           </div>
-          <p className="text-red-100">Welcome, {rescuerName}</p>
         </div>
       </div>
 
@@ -135,7 +145,7 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
           <div className="bg-white p-6 rounded-lg shadow">
             <p className="text-gray-500 text-sm mb-1">In Progress</p>
             <p className="text-blue-600">
-              {requests.filter((r) => r.status === 'assigned' || r.status === 'on-the-way' || r.status === 'reached').length}
+              {requests.filter((r) => r.status === 'assigned' || r.status === 'accepted' || r.status === 'on-the-way' || r.status === 'reached').length}
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
@@ -242,6 +252,25 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
                     )}
 
                     {request.status === 'assigned' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleUpdateStatus(request.id, 'accepted')}
+                          className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                          <span>Accept Assignment</span>
+                        </button>
+                        <button
+                          onClick={() => handleRejectCase(request.id)}
+                          className="w-full bg-gray-500 text-white py-3 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <X className="w-5 h-5" />
+                          <span>Reject Assignment</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {request.status === 'accepted' && (
                       <button
                         onClick={() => handleUpdateStatus(request.id, 'on-the-way')}
                         className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
@@ -264,17 +293,19 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
                     {request.status === 'reached' && (
                       <div className="space-y-3">
                         {selectedRequest === request.id && (
-                          <div>
-                            <label className="block text-gray-700 mb-2">
-                              <span>Rescue Summary (Required)</span>
-                            </label>
-                            <textarea
-                              value={rescuerNotes}
-                              onChange={(e) => setRescuerNotes(e.target.value)}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                              rows={3}
-                              placeholder="Describe the rescue outcome, actions taken, condition of the person, etc."
-                            />
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-gray-700 mb-2">
+                                <span>Rescue Summary (Required)</span>
+                              </label>
+                              <textarea
+                                value={rescuerNotes}
+                                onChange={(e) => setRescuerNotes(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                rows={3}
+                                placeholder="Describe the rescue outcome, actions taken, condition of the person, etc."
+                              />
+                            </div>
                           </div>
                         )}
                         <button
@@ -282,6 +313,7 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
                             if (selectedRequest === request.id) {
                               handleCompleteRescue(request.id);
                             } else {
+                              setRescuerNotes('');
                               setSelectedRequest(request.id);
                             }
                           }}

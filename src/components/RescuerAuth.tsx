@@ -12,6 +12,7 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -45,6 +46,10 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
         setError('Password must be at least 6 characters');
         return;
       }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
 
       const result = onRegister(email, password, name, phone, address);
       if (!result.success) {
@@ -54,6 +59,7 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
         setIsLogin(true);
         setError('');
         setPassword('');
+        setConfirmPassword('');
         // Show success message
         alert('Registration successful! Please log in with your credentials.');
       }
@@ -176,6 +182,25 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
               </div>
             </div>
 
+            {!isLogin && (
+              <div>
+                <label className="block text-gray-700 mb-2">
+                  <span>Confirm Password</span>
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Confirm your password"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                 {error}
@@ -197,6 +222,7 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
                 setError('');
                 setEmail('');
                 setPassword('');
+                setConfirmPassword('');
                 setName('');
                 setPhone('');
                 setAddress('');

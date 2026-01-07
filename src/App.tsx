@@ -18,11 +18,12 @@ export interface RescueRequest {
   location: string;
   photoUrl?: string;
   notes: string;
-  status: 'pending' | 'assigned' | 'on-the-way' | 'reached' | 'completed';
+  status: 'pending' | 'assigned' | 'accepted' | 'on-the-way' | 'reached' | 'completed';
   timestamp: string;
   assignedRescuer?: string;
   rescuerId?: string;
   rescuerNotes?: string;
+  trackingId?: string;
 }
 
 export interface RescuerAccount {
@@ -258,7 +259,7 @@ export default function App() {
   const updateRequestStatus = (
     id: string,
     status: RescueRequest['status'],
-    rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string }
+    rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string; trackingId?: string }
   ) => {
     setRescueRequests(
       rescueRequests.map((req) =>

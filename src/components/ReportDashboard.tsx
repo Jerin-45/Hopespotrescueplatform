@@ -31,7 +31,7 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
       filtered = filtered.filter(req => req.status === 'pending');
     } else if (filterStatus === 'in-progress') {
       filtered = filtered.filter(req => 
-        req.status === 'assigned' || req.status === 'on-the-way' || req.status === 'reached'
+        req.status === 'assigned' || req.status === 'accepted' || req.status === 'on-the-way' || req.status === 'reached'
       );
     }
 
@@ -70,7 +70,7 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
     const completed = requests.filter(r => r.status === 'completed').length;
     const pending = requests.filter(r => r.status === 'pending').length;
     const inProgress = requests.filter(r => 
-      r.status === 'assigned' || r.status === 'on-the-way' || r.status === 'reached'
+      r.status === 'assigned' || r.status === 'accepted' || r.status === 'on-the-way' || r.status === 'reached'
     ).length;
     const completionRate = total > 0 ? ((completed / total) * 100).toFixed(1) : '0';
 
@@ -100,6 +100,8 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'assigned':
         return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'accepted':
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'on-the-way':
         return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'reached':
@@ -149,6 +151,7 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
   const handleExportReport = () => {
     const reportData = filteredRequests.map(req => ({
       'Case ID': req.id,
+      'Tracking ID': req.trackingId || 'N/A',
       'Date & Time': formatDateTime(req.timestamp),
       'Helper Name': req.helperName,
       'Helper Phone': req.helperPhone,
@@ -201,7 +204,7 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
             name: req.assignedRescuer,
             totalCases: 1,
             completed: req.status === 'completed' ? 1 : 0,
-            inProgress: (req.status === 'assigned' || req.status === 'on-the-way' || req.status === 'reached') ? 1 : 0,
+            inProgress: (req.status === 'assigned' || req.status === 'accepted' || req.status === 'on-the-way' || req.status === 'reached') ? 1 : 0,
             pending: req.status === 'pending' ? 1 : 0,
             completionRate: 0,
             cases: [req],
@@ -575,6 +578,11 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2 flex-wrap">
                             <h3 className="text-gray-900">Case #{request.id}</h3>
+                            {request.trackingId && (
+                              <span className="font-mono text-sm bg-gray-100 text-gray-700 px-2 py-1 rounded border border-gray-200">
+                                {request.trackingId}
+                              </span>
+                            )}
                             <span className={`px-3 py-1 rounded-full text-sm border flex items-center gap-1 ${getStatusColor(request.status)}`}>
                               {getStatusIcon(request.status)}
                               {request.status.replace('-', ' ').toUpperCase()}
@@ -633,6 +641,16 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
                               <div className="flex-1">
                                 <p className="text-sm text-gray-500 mb-1">Assigned Rescuer</p>
                                 <p className="text-gray-900">{request.assignedRescuer}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {request.trackingId && (
+                            <div className="flex items-start gap-2">
+                              <CheckCircle className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm text-gray-500 mb-1">Tracking ID</p>
+                                <p className="text-gray-900 font-mono">{request.trackingId}</p>
                               </div>
                             </div>
                           )}

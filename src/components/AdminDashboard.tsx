@@ -171,6 +171,8 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
         return 'bg-yellow-100 text-yellow-800';
       case 'assigned':
         return 'bg-blue-100 text-blue-800';
+      case 'accepted':
+        return 'bg-indigo-100 text-indigo-800';
       case 'on-the-way':
         return 'bg-purple-100 text-purple-800';
       case 'reached':
@@ -188,6 +190,8 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
         return 'Pending Review';
       case 'assigned':
         return 'Rescuer Assigned';
+      case 'accepted':
+        return 'Rescuer Accepted';
       case 'on-the-way':
         return 'Rescuer On The Way';
       case 'reached':
@@ -259,6 +263,10 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
             <p className="text-blue-700 text-sm mb-1">Assigned</p>
             <p className="text-blue-900">{requests.filter((r) => r.status === 'assigned').length}</p>
           </div>
+          <div className="bg-indigo-50 p-6 rounded-lg shadow">
+            <p className="text-indigo-700 text-sm mb-1">Accepted</p>
+            <p className="text-indigo-900">{requests.filter((r) => r.status === 'accepted').length}</p>
+          </div>
           <div className="bg-purple-50 p-6 rounded-lg shadow">
             <p className="text-purple-700 text-sm mb-1">In Progress</p>
             <p className="text-purple-900">
@@ -303,6 +311,16 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
               }`}
             >
               Assigned
+            </button>
+            <button
+              onClick={() => setFilterStatus('accepted')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                filterStatus === 'accepted'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+              }`}
+            >
+              Accepted
             </button>
             <button
               onClick={() => setFilterStatus('on-the-way')}
@@ -425,11 +443,18 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
                     </div>
                   )}
 
-                  {request.assignedRescuer && (
-                    <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                      <p className="text-blue-900">
-                        <strong>Assigned Rescuer:</strong> {request.assignedRescuer}
-                      </p>
+                  {(request.assignedRescuer || request.trackingId) && (
+                    <div className="mb-6 p-4 bg-blue-50 rounded-lg space-y-2">
+                      {request.assignedRescuer && (
+                        <p className="text-blue-900">
+                          <strong>Assigned Rescuer:</strong> {request.assignedRescuer}
+                        </p>
+                      )}
+                      {request.trackingId && (
+                        <p className="text-blue-900">
+                          <strong>Tracking ID:</strong> <span className="font-mono">{request.trackingId}</span>
+                        </p>
+                      )}
                     </div>
                   )}
 
