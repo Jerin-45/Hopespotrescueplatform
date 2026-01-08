@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, MapPin, Phone, FileText, Clock, Shield, User, CheckCircle, AlertCircle, BarChart3, Users, Mail, MapPinned } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, FileText, Clock, Shield, User, CheckCircle, AlertCircle, BarChart3, Users, Mail, MapPinned, XCircle } from 'lucide-react';
 import { RescueRequest, RescuerAccount } from '../App';
 import { Header } from './Header';
 import { ReportDashboard } from './ReportDashboard';
@@ -467,6 +467,26 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
                     </div>
                   )}
 
+                  {/* Show rejection history if any rescuers have rejected */}
+                  {request.rejectedBy && request.rejectedBy.length > 0 && (
+                    <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                      <div className="flex items-start gap-2">
+                        <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-red-900 mb-1">
+                            <strong>Rejection History:</strong>
+                          </p>
+                          <p className="text-red-800 text-sm">
+                            This case was rejected by: {request.rejectedBy.map(id => {
+                              const rescuer = rescuers.find(r => r.id === id);
+                              return rescuer ? `${rescuer.id.toUpperCase()} (${rescuer.name})` : id.toUpperCase();
+                            }).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Admin Actions */}
                   <div className="space-y-3 border-t pt-4">
                     {request.status === 'pending' && (
@@ -480,11 +500,13 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
                                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                               >
                                 <option value="">Select a rescuer</option>
-                                {rescuers.filter(r => r.id).map(rescuer => (
-                                  <option key={rescuer.id} value={rescuer.id}>
-                                    {rescuer.id.toUpperCase()}
-                                  </option>
-                                ))}
+                                {rescuers
+                                  .filter(r => r.id && !(request.rejectedBy && request.rejectedBy.includes(r.id)))
+                                  .map(rescuer => (
+                                    <option key={rescuer.id} value={rescuer.id}>
+                                      {rescuer.id.toUpperCase()} - {rescuer.name}
+                                    </option>
+                                  ))}
                               </select>
                               <button
                                 onClick={() => handleAssignRescuer(request.id)}
@@ -507,6 +529,13 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
                               <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
                                 <p className="text-blue-900">
                                   {rescuers.find(r => r.id === selectedRescuerId)?.id.toUpperCase()} - {rescuers.find(r => r.id === selectedRescuerId)?.name}
+                                </p>
+                              </div>
+                            )}
+                            {request.rejectedBy && request.rejectedBy.length > 0 && (
+                              <div className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                                <p className="text-gray-700 text-sm">
+                                  <strong>Note:</strong> Rescuers who rejected this case are excluded from the list
                                 </p>
                               </div>
                             )}

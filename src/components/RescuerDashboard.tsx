@@ -9,7 +9,7 @@ interface RescuerDashboardProps {
   onUpdateStatus: (
     id: string,
     status: RescueRequest['status'],
-    rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string; trackingId?: string }
+    rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string; trackingId?: string; rejectedBy?: string[] }
   ) => void;
   rescuerName: string;
   rescuerEmail: string;
@@ -43,10 +43,18 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
   };
 
   const handleRejectCase = (id: string) => {
+    const request = requests.find((r) => r.id === id);
+    // Add this rescuer to the rejection list
+    const rejectedBy = request?.rejectedBy || [];
+    if (!rejectedBy.includes(rescuerId)) {
+      rejectedBy.push(rescuerId);
+    }
+    
     // Reset case back to pending for other rescuers
     onUpdateStatus(id, 'pending', {
       rescuerId: '',
       assignedRescuer: '',
+      rejectedBy,
     });
   };
 

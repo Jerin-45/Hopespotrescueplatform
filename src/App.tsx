@@ -24,6 +24,7 @@ export interface RescueRequest {
   rescuerId?: string;
   rescuerNotes?: string;
   trackingId?: string;
+  rejectedBy?: string[]; // Track rescuers who rejected this case
 }
 
 export interface RescuerAccount {
@@ -259,7 +260,7 @@ export default function App() {
   const updateRequestStatus = (
     id: string,
     status: RescueRequest['status'],
-    rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string; trackingId?: string }
+    rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string; trackingId?: string; rejectedBy?: string[] }
   ) => {
     setRescueRequests(
       rescueRequests.map((req) =>
