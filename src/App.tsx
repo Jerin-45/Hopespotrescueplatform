@@ -25,6 +25,7 @@ export interface RescueRequest {
   rescuerNotes?: string;
   trackingId?: string;
   rejectedBy?: string[]; // Track rescuers who rejected this case
+  rejectionReasons?: { rescuerId: string; rescuerName: string; reason: string; timestamp: string }[]; // Track rejection reasons
 }
 
 export interface RescuerAccount {
@@ -248,11 +249,15 @@ export default function App() {
   };
 
   const addRescueRequest = (request: Omit<RescueRequest, 'id' | 'timestamp' | 'status'>) => {
+    // Generate a tracking ID automatically for all new requests
+    const generatedTrackingId = `TRK-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+    
     const newRequest: RescueRequest = {
       ...request,
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
       status: 'pending',
+      trackingId: generatedTrackingId,
     };
     setRescueRequests([newRequest, ...rescueRequests]);
   };
@@ -260,7 +265,14 @@ export default function App() {
   const updateRequestStatus = (
     id: string,
     status: RescueRequest['status'],
-    rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string; trackingId?: string; rejectedBy?: string[] }
+    rescuerData?: { 
+      rescuerId: string; 
+      assignedRescuer: string; 
+      rescuerNotes?: string; 
+      trackingId?: string; 
+      rejectedBy?: string[];
+      rejectionReasons?: { rescuerId: string; rescuerName: string; reason: string; timestamp: string }[];
+    }
   ) => {
     setRescueRequests(
       rescueRequests.map((req) =>

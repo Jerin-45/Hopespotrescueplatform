@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, MapPin, Phone, FileText, Clock, CheckCircle, Navigation, X } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, FileText, Clock, CheckCircle, Navigation, X, AlertCircle } from 'lucide-react';
 import { RescueRequest } from '../App';
 import { Header } from './Header';
 
@@ -9,7 +9,14 @@ interface RescuerDashboardProps {
   onUpdateStatus: (
     id: string,
     status: RescueRequest['status'],
-    rescuerData?: { rescuerId: string; assignedRescuer: string; rescuerNotes?: string; trackingId?: string; rejectedBy?: string[] }
+    rescuerData?: { 
+      rescuerId: string; 
+      assignedRescuer: string; 
+      rescuerNotes?: string; 
+      trackingId?: string; 
+      rejectedBy?: string[];
+      rejectionReasons?: { rescuerId: string; rescuerName: string; reason: string; timestamp: string }[];
+    }
   ) => void;
   rescuerName: string;
   rescuerEmail: string;
@@ -18,6 +25,9 @@ interface RescuerDashboardProps {
 export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName, rescuerEmail }: RescuerDashboardProps) {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [rescuerNotes, setRescuerNotes] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectRequestId, setRejectRequestId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Extract rescuer ID from email (e.g., "jerin-r1" from email)
   const getRescuerId = () => {
@@ -50,12 +60,29 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
       rejectedBy.push(rescuerId);
     }
     
+    // Add rejection reason
+    const rejectionReasons = request?.rejectionReasons || [];
+    if (rejectionReason) {
+      rejectionReasons.push({
+        rescuerId: rescuerId,
+        rescuerName: rescuerName,
+        reason: rejectionReason,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
     // Reset case back to pending for other rescuers
     onUpdateStatus(id, 'pending', {
       rescuerId: '',
       assignedRescuer: '',
       rejectedBy,
+      rejectionReasons,
     });
+    
+    // Reset modal state
+    setShowRejectModal(false);
+    setRejectRequestId(null);
+    setRejectionReason('');
   };
 
   const handleUpdateStatus = (id: string, status: RescueRequest['status']) => {
@@ -71,14 +98,11 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
   const handleCompleteRescue = (id: string) => {
     const request = requests.find((r) => r.id === id);
     if (request && rescuerNotes) {
-      // Generate a tracking ID automatically
-      const generatedTrackingId = `TRK-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-      
       onUpdateStatus(id, 'completed', {
         rescuerId: request.rescuerId || rescuerId,
         assignedRescuer: request.assignedRescuer || rescuerName,
         rescuerNotes,
-        trackingId: generatedTrackingId,
+        trackingId: request.trackingId, // Keep existing tracking ID
       });
       setRescuerNotes('');
       setSelectedRequest(null);
@@ -184,13 +208,20 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
                   className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-gray-900">Case #{request.id}</h3>
                         <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(request.status)}`}>
                           {request.status === 'pending' ? 'New Request' : request.status.replace('-', ' ').toUpperCase()}
                         </span>
                       </div>
+                      {request.trackingId && (
+                        <div className="mb-2">
+                          <span className="inline-block bg-purple-100 text-purple-900 px-3 py-1 rounded-md text-sm font-mono">
+                            {request.trackingId}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 text-gray-500 text-sm">
                         <Clock className="w-4 h-4" />
                         <span>{formatTime(request.timestamp)}</span>
@@ -250,7 +281,10 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
                           <span>Accept This Case</span>
                         </button>
                         <button
-                          onClick={() => handleRejectCase(request.id)}
+                          onClick={() => {
+                            setRejectRequestId(request.id);
+                            setShowRejectModal(true);
+                          }}
                           className="w-full bg-gray-500 text-white py-3 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
                         >
                           <X className="w-5 h-5" />
@@ -269,7 +303,10 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
                           <span>Accept Assignment</span>
                         </button>
                         <button
-                          onClick={() => handleRejectCase(request.id)}
+                          onClick={() => {
+                            setRejectRequestId(request.id);
+                            setShowRejectModal(true);
+                          }}
                           className="w-full bg-gray-500 text-white py-3 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
                         >
                           <X className="w-5 h-5" />
@@ -348,6 +385,46 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
           )}
         </div>
       </div>
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-900">Reject Case</h3>
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-gray-500 mb-4">Please provide a reason for rejecting this case:</p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              rows={3}
+              placeholder="Enter your reason here..."
+            />
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors mr-2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleRejectCase(rejectRequestId!)}
+                className="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
+                disabled={!rejectionReason}
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

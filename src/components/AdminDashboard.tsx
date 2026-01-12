@@ -375,7 +375,7 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
                   }`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-gray-900">Case #{request.id}</h3>
                         <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(request.status)}`}>
@@ -385,6 +385,13 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
                           <AlertCircle className="w-5 h-5 text-yellow-600" />
                         )}
                       </div>
+                      {request.trackingId && (
+                        <div className="mb-2">
+                          <span className="inline-block bg-purple-100 text-purple-900 px-3 py-1 rounded-md text-sm font-mono">
+                            {request.trackingId}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 text-gray-500 text-sm">
                         <Clock className="w-4 h-4" />
                         <span>{formatTime(request.timestamp)}</span>
@@ -472,16 +479,34 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
                     <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
                       <div className="flex items-start gap-2">
                         <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-red-900 mb-1">
+                        <div className="flex-1">
+                          <p className="text-red-900 mb-2">
                             <strong>Rejection History:</strong>
                           </p>
-                          <p className="text-red-800 text-sm">
-                            This case was rejected by: {request.rejectedBy.map(id => {
-                              const rescuer = rescuers.find(r => r.id === id);
-                              return rescuer ? `${rescuer.id.toUpperCase()} (${rescuer.name})` : id.toUpperCase();
-                            }).join(', ')}
-                          </p>
+                          {request.rejectionReasons && request.rejectionReasons.length > 0 ? (
+                            <div className="space-y-3">
+                              {request.rejectionReasons.map((rejection, index) => (
+                                <div key={index} className="bg-white p-3 rounded border border-red-200">
+                                  <p className="text-red-900 mb-1">
+                                    <strong>{rejection.rescuerName}</strong> ({rejection.rescuerId.toUpperCase()})
+                                  </p>
+                                  <p className="text-red-800 text-sm mb-1">
+                                    <strong>Reason:</strong> {rejection.reason}
+                                  </p>
+                                  <p className="text-red-700 text-xs">
+                                    {new Date(rejection.timestamp).toLocaleString()}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-red-800 text-sm">
+                              This case was rejected by: {request.rejectedBy.map(id => {
+                                const rescuer = rescuers.find(r => r.id === id);
+                                return rescuer ? `${rescuer.id.toUpperCase()} (${rescuer.name})` : id.toUpperCase();
+                              }).join(', ')}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>

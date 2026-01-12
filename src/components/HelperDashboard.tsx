@@ -504,13 +504,20 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
               {requests.map((request) => (
                 <div key={request.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
                   <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-gray-900">{request.helperName}</h3>
+                        <h3 className="text-gray-900">Case #{request.id}</h3>
                         <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(request.status)}`}>
                           {getStatusText(request.status)}
                         </span>
                       </div>
+                      {request.trackingId && (
+                        <div className="mb-2">
+                          <span className="inline-block bg-purple-100 text-purple-900 px-3 py-1 rounded-md text-sm font-mono">
+                            {request.trackingId}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 text-gray-500 text-sm">
                         <Clock className="w-4 h-4" />
                         <span>{formatTime(request.timestamp)}</span>
@@ -518,7 +525,12 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-3 mb-4">
+                    <div className="pb-3 border-b border-gray-200">
+                      <h4 className="text-gray-700 mb-2">Helper Information</h4>
+                      <p className="text-gray-900">{request.helperName}</p>
+                    </div>
+
                     <div className="flex items-start gap-2">
                       <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                       <div>
@@ -578,14 +590,6 @@ export function HelperDashboard({ onBack, onSubmitRequest, requests }: HelperDas
                       <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                         <p className="text-sm text-blue-900">
                           <strong>Assigned Rescuer:</strong> {request.assignedRescuer}
-                        </p>
-                      </div>
-                    )}
-
-                    {request.trackingId && (
-                      <div className="mt-4 p-4 bg-purple-50 rounded-lg">
-                        <p className="text-sm text-purple-900">
-                          <strong>Tracking ID:</strong> {request.trackingId}
                         </p>
                       </div>
                     )}
