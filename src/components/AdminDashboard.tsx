@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, MapPin, Phone, FileText, Clock, Shield, User, CheckCircle, AlertCircle, BarChart3, Users, Mail, MapPinned, XCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, FileText, Clock, Shield, User, CheckCircle, AlertCircle, BarChart3, Users, Mail, MapPinned, XCircle, Award, TrendingUp } from 'lucide-react';
 import { RescueRequest, RescuerAccount } from '../App';
 import { Header } from './Header';
 import { ReportDashboard } from './ReportDashboard';
@@ -21,6 +21,7 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
   const [filterStatus, setFilterStatus] = useState<'all' | RescueRequest['status']>('all');
   const [showReports, setShowReports] = useState(false);
   const [showRescuerDirectory, setShowRescuerDirectory] = useState(false);
+  const [viewMode, setViewMode] = useState<'cases' | 'assignments'>('cases');
 
   // Show reports view if requested
   if (showReports) {
@@ -208,6 +209,61 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
     return date.toLocaleString();
   };
 
+  // Calculate rescuer statistics
+  const rescuerStats = (() => {
+    const statsMap = new Map<string, {
+      id: string;
+      name: string;
+      totalCases: number;
+      assigned: number;
+      accepted: number;
+      inProgress: number;
+      completed: number;
+      completionRate: number;
+      phone: string;
+      email: string;
+    }>();
+
+    // Initialize all rescuers with zero stats
+    rescuers.forEach(rescuer => {
+      statsMap.set(rescuer.id, {
+        id: rescuer.id,
+        name: rescuer.name,
+        totalCases: 0,
+        assigned: 0,
+        accepted: 0,
+        inProgress: 0,
+        completed: 0,
+        completionRate: 0,
+        phone: rescuer.phone,
+        email: rescuer.email,
+      });
+    });
+
+    // Count cases for each rescuer
+    requests.forEach(req => {
+      if (req.rescuerId && req.assignedRescuer) {
+        const stats = statsMap.get(req.rescuerId);
+        if (stats) {
+          stats.totalCases++;
+          if (req.status === 'assigned') stats.assigned++;
+          else if (req.status === 'accepted') stats.accepted++;
+          else if (req.status === 'on-the-way' || req.status === 'reached') stats.inProgress++;
+          else if (req.status === 'completed') stats.completed++;
+        }
+      }
+    });
+
+    // Calculate completion rates
+    statsMap.forEach(stats => {
+      stats.completionRate = stats.totalCases > 0 
+        ? (stats.completed / stats.totalCases) * 100 
+        : 0;
+    });
+
+    return Array.from(statsMap.values()).sort((a, b) => b.totalCases - a.totalCases);
+  })();
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header variant="dark" />
@@ -279,19 +335,114 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => setFilterStatus('all')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filterStatus === 'all'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              All Cases
-            </button>
+        {/* View Mode Toggle */}
+        <div className="flex bg-white rounded-lg shadow-lg p-1 mb-6">
+          <button
+            onClick={() => setViewMode('cases')}
+            className={`flex-1 px-6 py-3 rounded-md transition-colors ${
+              viewMode === 'cases'
+                ? 'bg-gray-900 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <FileText className="w-4 h-4" />
+              <span>Case Reports</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setViewMode('assignments')}
+            className={`flex-1 px-6 py-3 rounded-md transition-colors ${
+              viewMode === 'assignments'
+                ? 'bg-gray-900 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Users className="w-4 h-4" />
+              <span>Rescuer Assignments</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Rescuer Assignments View */}
+        {viewMode === 'assignments' && (
+          <div>
+            <h2 className="mb-6 text-gray-900">Rescuer Assignment Overview</h2>
+            
+            {rescuerStats.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+                <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-900 mb-2">No Rescuers Found</p>
+                <p className="text-gray-500">No rescuers have been registered yet</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="text-left px-6 py-4 text-gray-700">Rescuer</th>
+                        <th className="text-center px-6 py-4 text-gray-700">Total Cases</th>
+                        <th className="text-center px-6 py-4 text-gray-700">Accepted</th>
+                        <th className="text-center px-6 py-4 text-gray-700">Completed</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {rescuerStats.map((stats) => (
+                        <tr key={stats.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <User className="w-5 h-5 text-white" />
+                              </div>
+                              <div>
+                                <p className="text-gray-900">{stats.name}</p>
+                                <p className="text-sm text-gray-500">{stats.id.toUpperCase()}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-flex items-center justify-center w-10 h-10 bg-gray-100 text-gray-900 rounded-full">
+                              {stats.totalCases}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-flex items-center justify-center w-10 h-10 bg-indigo-100 text-indigo-900 rounded-full">
+                              {stats.accepted}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-flex items-center justify-center w-10 h-10 bg-green-100 text-green-900 rounded-full">
+                              {stats.completed}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Case Reports View */}
+        {viewMode === 'cases' && (
+          <>
+            {/* Filters */}
+            <div className="bg-white rounded-lg shadow p-4 mb-6">
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => setFilterStatus('all')}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    filterStatus === 'all'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All Cases
+                </button>
             <button
               onClick={() => setFilterStatus('pending')}
               className={`px-4 py-2 rounded-lg transition-colors ${
@@ -599,6 +750,8 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
     </div>
   );

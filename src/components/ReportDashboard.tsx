@@ -281,7 +281,7 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
             <p className="text-gray-500 text-sm mb-1">Total Cases</p>
             <p className="text-blue-600">{stats.total}</p>
@@ -304,13 +304,6 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
               <p className="text-gray-500 text-sm">Success Rate</p>
             </div>
             <p className="text-indigo-600">{stats.completionRate}%</p>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-orange-500">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <p className="text-gray-500 text-sm">Avg Time</p>
-            </div>
-            <p className="text-orange-600">{stats.avgResponseTime}</p>
           </div>
         </div>
 
@@ -508,36 +501,87 @@ export function ReportDashboard({ onBack, requests }: ReportDashboardProps) {
                         </div>
                       </div>
 
-                      {selectedRescuer === rescuer.name && (
-                        <div className="mt-6 pt-6 border-t border-gray-200">
-                          <h4 className="text-gray-900 mb-4">Assigned Cases</h4>
-                          <div className="space-y-3">
-                            {rescuer.cases.map((caseItem) => (
-                              <div
-                                key={caseItem.id}
-                                className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors"
-                              >
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-gray-900">Case #{caseItem.id}</span>
-                                  <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(caseItem.status)}`}>
-                                    {caseItem.status.replace('-', ' ').toUpperCase()}
-                                  </span>
-                                </div>
-                                <div className="text-sm text-gray-600 space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <MapPin className="w-3 h-3" />
-                                    <span>{caseItem.location}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Clock className="w-3 h-3" />
-                                    <span>{formatDateTime(caseItem.timestamp)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                      {/* Always show assigned cases */}
+                      <div className="px-6 pb-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-gray-900">Assigned Cases</h4>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRescuer(selectedRescuer === rescuer.name ? null : rescuer.name);
+                            }}
+                            className="text-blue-600 hover:text-blue-700 text-sm"
+                          >
+                            {selectedRescuer === rescuer.name ? 'Show Less' : 'Show Details'}
+                          </button>
                         </div>
-                      )}
+                        <div className="space-y-3">
+                          {rescuer.cases.slice(0, selectedRescuer === rescuer.name ? undefined : 3).map((caseItem) => (
+                            <div
+                              key={caseItem.id}
+                              className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors border border-gray-200"
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-gray-900">Case #{caseItem.id}</span>
+                                  {caseItem.trackingId && (
+                                    <span className="font-mono text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                                      {caseItem.trackingId}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(caseItem.status)}`}>
+                                  {caseItem.status.replace('-', ' ').toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="text-sm text-gray-600 space-y-2">
+                                <div className="flex items-start gap-2">
+                                  <User className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                  <div>
+                                    <span className="text-gray-500">Helper: </span>
+                                    <span className="text-gray-900">{caseItem.helperName}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <Phone className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                  <span className="text-gray-900">{caseItem.helperPhone}</span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                  <span className="text-gray-900">{caseItem.location}</span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <Clock className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                  <span className="text-gray-900">{formatDateTime(caseItem.timestamp)}</span>
+                                </div>
+                                {selectedRescuer === rescuer.name && caseItem.notes && (
+                                  <div className="flex items-start gap-2 pt-2 border-t border-gray-200">
+                                    <FileText className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                      <span className="text-gray-500">Notes: </span>
+                                      <span className="text-gray-900">{caseItem.notes}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {selectedRescuer === rescuer.name && caseItem.rescuerNotes && (
+                                  <div className="flex items-start gap-2 pt-2 border-t border-gray-200">
+                                    <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-green-600" />
+                                    <div>
+                                      <span className="text-gray-500">Rescuer Notes: </span>
+                                      <span className="text-gray-900">{caseItem.rescuerNotes}</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {!selectedRescuer && rescuer.cases.length > 3 && (
+                            <div className="text-center text-sm text-gray-500 pt-2">
+                              + {rescuer.cases.length - 3} more cases
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
