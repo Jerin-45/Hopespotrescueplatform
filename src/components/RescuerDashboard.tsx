@@ -20,27 +20,21 @@ interface RescuerDashboardProps {
   ) => void;
   rescuerName: string;
   rescuerEmail: string;
+  rescuerId: string;
 }
 
-export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName, rescuerEmail }: RescuerDashboardProps) {
+export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName, rescuerEmail, rescuerId }: RescuerDashboardProps) {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [rescuerNotes, setRescuerNotes] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
-  // Extract rescuer ID from email (e.g., "jerin-r1" from email)
-  const getRescuerId = () => {
-    // Look for the rescuer ID pattern in the rescuerEmail
-    const match = rescuerEmail.match(/rescuer(\d+)/);
-    return match ? `R${match[1]}` : '';
-  };
-
-  const rescuerId = getRescuerId();
-
-  // Filter requests that are available or assigned to this rescuer
-  const availableRequests = requests.filter(
-    (req) => req.status === 'pending' || req.status === 'assigned' || req.status === 'accepted' || req.status === 'on-the-way' || req.status === 'reached'
+  // Filter requests that are specifically assigned to this rescuer
+  // Rescuers ONLY see cases that have been assigned to them by the admin
+  const myAssignedRequests = requests.filter(
+    (req) => req.rescuerId === rescuerId && 
+             (req.status === 'assigned' || req.status === 'accepted' || req.status === 'on-the-way' || req.status === 'reached')
   );
 
   const handleAcceptCase = (id: string) => {
@@ -171,22 +165,22 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
         {/* Statistics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white p-6 rounded-lg shadow">
-            <p className="text-gray-500 text-sm mb-1">Pending</p>
-            <p className="text-yellow-600">{requests.filter((r) => r.status === 'pending').length}</p>
+            <p className="text-gray-500 text-sm mb-1">My Assigned</p>
+            <p className="text-blue-600">{myAssignedRequests.filter((r) => r.status === 'assigned').length}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <p className="text-gray-500 text-sm mb-1">In Progress</p>
-            <p className="text-blue-600">
-              {requests.filter((r) => r.status === 'assigned' || r.status === 'accepted' || r.status === 'on-the-way' || r.status === 'reached').length}
+            <p className="text-purple-600">
+              {myAssignedRequests.filter((r) => r.status === 'accepted' || r.status === 'on-the-way' || r.status === 'reached').length}
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <p className="text-gray-500 text-sm mb-1">Completed</p>
-            <p className="text-green-600">{requests.filter((r) => r.status === 'completed').length}</p>
+            <p className="text-green-600">{requests.filter((r) => r.rescuerId === rescuerId && r.status === 'completed').length}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
-            <p className="text-gray-500 text-sm mb-1">Total</p>
-            <p className="text-gray-900">{requests.length}</p>
+            <p className="text-gray-500 text-sm mb-1">Total Cases</p>
+            <p className="text-gray-900">{requests.filter((r) => r.rescuerId === rescuerId).length}</p>
           </div>
         </div>
 
@@ -194,7 +188,7 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
         <div>
           <h2 className="mb-6 text-gray-900">Active Rescue Requests</h2>
           
-          {availableRequests.length === 0 ? (
+          {myAssignedRequests.length === 0 ? (
             <div className="bg-white rounded-xl shadow-lg p-12 text-center">
               <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
               <p className="text-gray-900 mb-2">All Clear!</p>
@@ -202,7 +196,7 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
             </div>
           ) : (
             <div className="grid gap-6">
-              {availableRequests.map((request) => (
+              {myAssignedRequests.map((request) => (
                 <div
                   key={request.id}
                   className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow"

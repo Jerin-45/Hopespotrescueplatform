@@ -162,6 +162,7 @@ export default function App() {
   const [isRescuerAuthenticated, setIsRescuerAuthenticated] = useState(false);
   const [currentRescuerName, setCurrentRescuerName] = useState('');
   const [currentRescuerEmail, setCurrentRescuerEmail] = useState('');
+  const [currentRescuerId, setCurrentRescuerId] = useState('');
   const [rescueRequests, setRescueRequests] = useState<RescueRequest[]>(getInitialRequests());
   const [rescuers, setRescuers] = useState<RescuerAccount[]>(getStoredRescuers());
 
@@ -196,6 +197,7 @@ export default function App() {
       setIsRescuerAuthenticated(false);
       setCurrentRescuerName('');
       setCurrentRescuerEmail('');
+      setCurrentRescuerId('');
     }
   };
 
@@ -218,6 +220,7 @@ export default function App() {
       setIsRescuerAuthenticated(true);
       setCurrentRescuerName(rescuer.name || '');
       setCurrentRescuerEmail(rescuer.email);
+      setCurrentRescuerId(rescuer.id);
       setCurrentRole('rescuer');
       return { success: true, name: rescuer.name };
     }
@@ -346,6 +349,7 @@ export default function App() {
         onUpdateStatus={updateRequestStatus}
         rescuerName={currentRescuerName}
         rescuerEmail={currentRescuerEmail}
+        rescuerId={currentRescuerId}
       />
     );
   }
