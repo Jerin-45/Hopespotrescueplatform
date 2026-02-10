@@ -21,9 +21,10 @@ interface RescuerDashboardProps {
   rescuerName: string;
   rescuerEmail: string;
   rescuerId: string;
+  rescuerDisplayId?: string;
 }
 
-export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName, rescuerEmail, rescuerId }: RescuerDashboardProps) {
+export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName, rescuerEmail, rescuerId, rescuerDisplayId }: RescuerDashboardProps) {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [rescuerNotes, setRescuerNotes] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -154,7 +155,7 @@ export function RescuerDashboard({ onBack, requests, onUpdateStatus, rescuerName
           <h2 className="text-white mb-2">Rescuer Dashboard</h2>
           <div className="flex items-center gap-3">
             <p className="text-red-100">
-              {rescuerId && <span className="font-semibold">{rescuerId} - </span>}
+              {(rescuerDisplayId || rescuerId) && <span className="font-semibold">{rescuerDisplayId || rescuerId} - </span>}
               {rescuerName}
             </p>
           </div>

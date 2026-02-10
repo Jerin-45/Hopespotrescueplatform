@@ -3,8 +3,8 @@ import { ArrowLeft, Mail, Lock, User, Shield, Heart, Phone, MapPin } from 'lucid
 import { Header } from './Header';
 
 interface RescuerAuthProps {
-  onLogin: (email: string, password: string) => { success: boolean; name?: string; error?: string };
-  onRegister: (email: string, password: string, name: string, phone: string, address: string) => { success: boolean; error?: string };
+  onLogin: (email: string, password: string) => Promise<{ success: boolean; name?: string; error?: string }>;
+  onRegister: (email: string, password: string, name: string, phone: string, address: string) => Promise<{ success: boolean; error?: string }>;
   onBack: () => void;
 }
 
@@ -18,15 +18,19 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
   const [address, setAddress] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (isLogin) {
       // Handle Login
-      const result = onLogin(email, password);
-      if (!result.success) {
-        setError(result.error || 'Invalid email or password');
+      try {
+        const result = await onLogin(email, password);
+        if (!result.success) {
+          setError(result.error || 'Invalid email or password');
+        }
+      } catch (err) {
+        setError('An unexpected error occurred during login');
       }
     } else {
       // Handle Registration
@@ -51,17 +55,21 @@ export function RescuerAuth({ onLogin, onRegister, onBack }: RescuerAuthProps) {
         return;
       }
 
-      const result = onRegister(email, password, name, phone, address);
-      if (!result.success) {
-        setError(result.error || 'Registration failed');
-      } else {
-        // Switch to login view after successful registration
-        setIsLogin(true);
-        setError('');
-        setPassword('');
-        setConfirmPassword('');
-        // Show success message
-        alert('Registration successful! Please log in with your credentials.');
+      try {
+        const result = await onRegister(email, password, name, phone, address);
+        if (!result.success) {
+          setError(result.error || 'Registration failed');
+        } else {
+          // Switch to login view after successful registration
+          setIsLogin(true);
+          setError('');
+          setPassword('');
+          setConfirmPassword('');
+          // Show success message
+          alert('Registration successful! Please log in with your credentials.');
+        }
+      } catch (err) {
+        setError('An unexpected error occurred during registration');
       }
     }
   };

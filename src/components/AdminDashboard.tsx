@@ -73,7 +73,7 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
                     <div>
                       <h3 className="text-gray-900">{rescuer.name}</h3>
                       <span className="inline-block mt-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                        {rescuer.id.toUpperCase()}
+                        {rescuer.displayId || rescuer.id.toUpperCase()}
                       </span>
                     </div>
                   </div>
@@ -150,7 +150,7 @@ export function AdminDashboard({ onBack, requests, onUpdateStatus, rescuers }: A
       if (rescuer) {
         onUpdateStatus(id, 'assigned', {
           rescuerId: rescuer.id,
-          assignedRescuer: rescuer.id.toUpperCase(),
+          assignedRescuer: rescuer.displayId || rescuer.name || rescuer.id.toUpperCase(),
         });
         setSelectedRescuerId('');
         setSelectedRequest(null);

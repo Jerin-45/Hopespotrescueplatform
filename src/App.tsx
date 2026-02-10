@@ -6,6 +6,8 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLogin } from './components/AdminLogin';
 import { RescuerAuth } from './components/RescuerAuth';
 import { ReportDashboard } from './components/ReportDashboard';
+import { supabase } from './utils/supabase/client';
+import { projectId, publicAnonKey } from './utils/supabase/info';
 
 export type UserRole = 'helper' | 'rescuer' | 'admin' | null;
 
@@ -31,130 +33,17 @@ export interface RescueRequest {
 export interface RescuerAccount {
   id: string;
   email: string;
-  password: string;
+  password?: string; // Not stored in frontend for new auth, but kept for type compatibility if needed
   name?: string;
   phone?: string;
   address?: string;
   registeredAt: string;
   altPhone?: string;
   profileComplete?: boolean;
+  displayId?: string;
 }
 
-const STORAGE_KEY = 'hopespot_rescue_requests';
-const RESCUERS_STORAGE_KEY = 'hopespot_rescuers';
-
-// Load rescuers from localStorage
-const getStoredRescuers = (): RescuerAccount[] => {
-  try {
-    const stored = localStorage.getItem(RESCUERS_STORAGE_KEY);
-    if (stored) {
-      const parsedRescuers = JSON.parse(stored);
-      // Check if all rescuers have the 'id' field - if not, reset to defaults
-      const allHaveIds = parsedRescuers.every((r: any) => r.id);
-      if (allHaveIds) {
-        return parsedRescuers;
-      }
-      // Clear old data and use defaults
-      localStorage.removeItem(RESCUERS_STORAGE_KEY);
-    }
-  } catch (error) {
-    console.error('Error loading rescuers from localStorage:', error);
-  }
-  
-  // Return 6 pre-registered rescuers if nothing in storage
-  return [
-    {
-      id: 'jerin-r1',
-      email: 'rescuer1@hopespot.com',
-      password: 'rescue123',
-      name: 'Jerin',
-      phone: '+1234567801',
-      address: '123 Oak Street, Downtown District',
-      registeredAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-    },
-    {
-      id: 'kumar-r2',
-      email: 'rescuer2@hopespot.com',
-      password: 'rescue456',
-      name: 'Kumar',
-      phone: '+1234567802',
-      address: '456 Elm Avenue, North Side',
-      registeredAt: new Date(Date.now() - 86400000 * 25).toISOString(),
-    },
-    {
-      id: 'james-r3',
-      email: 'rescuer3@hopespot.com',
-      password: 'rescue789',
-      name: 'James',
-      phone: '+1234567803',
-      address: '789 Pine Road, East End',
-      registeredAt: new Date(Date.now() - 86400000 * 20).toISOString(),
-    },
-    {
-      id: 'emily-r4',
-      email: 'rescuer4@hopespot.com',
-      password: 'rescue321',
-      name: 'Emily',
-      phone: '+1234567804',
-      address: '321 Maple Lane, West Hills',
-      registeredAt: new Date(Date.now() - 86400000 * 15).toISOString(),
-    },
-    {
-      id: 'david-r5',
-      email: 'rescuer5@hopespot.com',
-      password: 'rescue654',
-      name: 'David',
-      phone: '+1234567805',
-      address: '654 Cedar Boulevard, South Valley',
-      registeredAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-    },
-    {
-      id: 'lisa-r6',
-      email: 'rescuer6@hopespot.com',
-      password: 'rescue987',
-      name: 'Lisa',
-      phone: '+1234567806',
-      address: '987 Birch Street, Central Park Area',
-      registeredAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    },
-  ];
-};
-
-// Load initial data from localStorage or use demo data
-const getInitialRequests = (): RescueRequest[] => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (error) {
-    console.error('Error loading data from localStorage:', error);
-  }
-  
-  // Return demo data if nothing in storage
-  return [
-    {
-      id: '1',
-      helperName: 'John Smith',
-      helperPhone: '+1234567890',
-      location: 'Highway 101, Mile Marker 45',
-      notes: 'Elderly person sitting by the roadside, looks dehydrated',
-      status: 'pending',
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: '2',
-      helperName: 'Sarah Johnson',
-      helperPhone: '+1234567891',
-      location: 'Main Street & Oak Avenue',
-      notes: 'Person with injured leg, needs immediate assistance',
-      status: 'assigned',
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-      assignedRescuer: 'JERIN-R1',
-      rescuerId: 'jerin-r1',
-    },
-  ];
-};
+const SERVER_URL = `https://${projectId}.supabase.co/functions/v1/make-server-12d090c6`;
 
 export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>(null);
@@ -163,29 +52,47 @@ export default function App() {
   const [currentRescuerName, setCurrentRescuerName] = useState('');
   const [currentRescuerEmail, setCurrentRescuerEmail] = useState('');
   const [currentRescuerId, setCurrentRescuerId] = useState('');
-  const [rescueRequests, setRescueRequests] = useState<RescueRequest[]>(getInitialRequests());
-  const [rescuers, setRescuers] = useState<RescuerAccount[]>(getStoredRescuers());
+  const [currentRescuerDisplayId, setCurrentRescuerDisplayId] = useState('');
+  const [rescueRequests, setRescueRequests] = useState<RescueRequest[]>([]);
+  const [rescuers, setRescuers] = useState<RescuerAccount[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Save to localStorage whenever requests change
-  useEffect(() => {
+  // Fetch data from server
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(rescueRequests));
-    } catch (error) {
-      console.error('Error saving data to localStorage:', error);
-    }
-  }, [rescueRequests]);
+      // Fetch Requests
+      const reqResponse = await fetch(`${SERVER_URL}/requests`, {
+        headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+      });
+      if (reqResponse.ok) {
+        const requestsData = await reqResponse.json();
+        setRescueRequests(requestsData || []);
+      }
 
-  // Save rescuers to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem(RESCUERS_STORAGE_KEY, JSON.stringify(rescuers));
+      // Fetch Rescuers
+      const rescuerResponse = await fetch(`${SERVER_URL}/rescuers`, {
+        headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+      });
+      if (rescuerResponse.ok) {
+        const rescuersData = await rescuerResponse.json();
+        setRescuers(rescuersData || []);
+      }
     } catch (error) {
-      console.error('Error saving rescuers to localStorage:', error);
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [rescuers]);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleRoleSelect = (role: UserRole) => {
     setCurrentRole(role);
+    // Refresh data when switching roles to ensure fresh state
+    if (role) fetchData();
   };
 
   const handleBack = () => {
@@ -198,6 +105,8 @@ export default function App() {
       setCurrentRescuerName('');
       setCurrentRescuerEmail('');
       setCurrentRescuerId('');
+      setCurrentRescuerDisplayId('');
+      supabase.auth.signOut();
     }
   };
 
@@ -206,53 +115,80 @@ export default function App() {
     if (adminId === 'admin' && password === 'admin123') {
       setIsAdminAuthenticated(true);
       setCurrentRole('admin');
+      // Refresh rescuers list for admin
+      fetchData();
       return true;
     }
     return false;
   };
 
-  const handleRescuerLogin = (identifier: string, password: string) => {
-    const rescuer = rescuers.find(
-      (r) => r.email.toLowerCase() === identifier.toLowerCase() && r.password === password
-    );
+  const handleRescuerLogin = async (identifier: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: identifier,
+        password: password,
+      });
 
-    if (rescuer) {
-      setIsRescuerAuthenticated(true);
-      setCurrentRescuerName(rescuer.name || '');
-      setCurrentRescuerEmail(rescuer.email);
-      setCurrentRescuerId(rescuer.id);
-      setCurrentRole('rescuer');
-      return { success: true, name: rescuer.name };
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (data.user) {
+        // Find the rescuer profile
+        // We need to fetch the latest rescuers list to be sure
+        const rescuerResponse = await fetch(`${SERVER_URL}/rescuers`, {
+            headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+        });
+        const allRescuers: RescuerAccount[] = await rescuerResponse.json();
+        
+        const rescuer = allRescuers.find(r => r.id === data.user!.id);
+        
+        if (rescuer) {
+          setIsRescuerAuthenticated(true);
+          setCurrentRescuerName(rescuer.name || '');
+          setCurrentRescuerEmail(rescuer.email);
+          setCurrentRescuerId(rescuer.id);
+          setCurrentRescuerDisplayId(rescuer.displayId || '');
+          setCurrentRole('rescuer');
+          return { success: true, name: rescuer.name };
+        } else {
+            // Profile missing?
+            return { success: false, error: 'Rescuer profile not found' };
+        }
+      }
+      return { success: false, error: 'Login failed' };
+    } catch (err) {
+      console.error('Login error:', err);
+      return { success: false, error: 'Network error during login' };
     }
-    return { success: false, error: 'Invalid email or password' };
   };
 
-  const handleRescuerRegister = (email: string, password: string, name: string, phone: string, address: string) => {
-    // Check if email already exists
-    const existingRescuer = rescuers.find(
-      (r) => r.email.toLowerCase() === email.toLowerCase()
-    );
+  const handleRescuerRegister = async (email: string, password: string, name: string, phone: string, address: string) => {
+    try {
+      const response = await fetch(`${SERVER_URL}/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({ email, password, name, phone, address })
+      });
 
-    if (existingRescuer) {
-      return { success: false, error: 'Email already registered' };
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Handle specific error cases if needed
+        return { success: false, error: data.error || 'Registration failed' };
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error('Registration error:', err);
+      return { success: false, error: 'Network error during registration' };
     }
-
-    const newRescuer: RescuerAccount = {
-      id: Date.now().toString(),
-      email: email.toLowerCase(),
-      password,
-      name,
-      phone,
-      address,
-      registeredAt: new Date().toISOString(),
-    };
-
-    setRescuers([...rescuers, newRescuer]);
-    return { success: true };
   };
 
-  const addRescueRequest = (request: Omit<RescueRequest, 'id' | 'timestamp' | 'status'>) => {
-    // Generate a tracking ID automatically for all new requests
+  const addRescueRequest = async (request: Omit<RescueRequest, 'id' | 'timestamp' | 'status'>) => {
     const generatedTrackingId = `TRK-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
     
     const newRequest: RescueRequest = {
@@ -262,10 +198,30 @@ export default function App() {
       status: 'pending',
       trackingId: generatedTrackingId,
     };
-    setRescueRequests([newRequest, ...rescueRequests]);
+
+    try {
+      const response = await fetch(`${SERVER_URL}/requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify(newRequest)
+      });
+
+      if (response.ok) {
+        setRescueRequests([newRequest, ...rescueRequests]);
+      } else {
+        console.error('Failed to save request');
+        alert('Failed to submit request. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error saving request:', err);
+      alert('Error submitting request. Please check your connection.');
+    }
   };
 
-  const updateRequestStatus = (
+  const updateRequestStatus = async (
     id: string,
     status: RescueRequest['status'],
     rescuerData?: { 
@@ -277,45 +233,38 @@ export default function App() {
       rejectionReasons?: { rescuerId: string; rescuerName: string; reason: string; timestamp: string }[];
     }
   ) => {
-    setRescueRequests(
-      rescueRequests.map((req) =>
-        req.id === id
-          ? { ...req, status, ...rescuerData }
-          : req
-      )
+    // Optimistic update
+    const previousRequests = [...rescueRequests];
+    const updatedRequests = rescueRequests.map((req) =>
+      req.id === id
+        ? { ...req, status, ...rescuerData }
+        : req
     );
-  };
+    setRescueRequests(updatedRequests);
 
-  const clearAllData = () => {
-    setRescueRequests([]);
-    localStorage.removeItem(STORAGE_KEY);
-  };
+    const updatedRequest = updatedRequests.find(r => r.id === id);
 
-  const importData = (data: RescueRequest[]) => {
-    setRescueRequests(data);
-  };
+    if (updatedRequest) {
+      try {
+        const response = await fetch(`${SERVER_URL}/requests/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${publicAnonKey}`
+          },
+          body: JSON.stringify(updatedRequest)
+        });
 
-  const handleAddRescuer = (rescuer: RescuerAccount) => {
-    // Check if rescuer ID already exists
-    const existingRescuer = rescuers.find(
-      (r) => r.id.toLowerCase() === rescuer.id.toLowerCase()
-    );
-    
-    if (existingRescuer) {
-      return { success: false, error: 'Rescuer ID already exists' };
+        if (!response.ok) {
+          throw new Error('Failed to update');
+        }
+      } catch (err) {
+        console.error('Error updating status:', err);
+        // Revert on error
+        setRescueRequests(previousRequests);
+        alert('Failed to update status. Please check your connection.');
+      }
     }
-
-    // Check if email already exists
-    const existingEmail = rescuers.find(
-      (r) => r.email.toLowerCase() === rescuer.email.toLowerCase()
-    );
-    
-    if (existingEmail) {
-      return { success: false, error: 'Email already registered' };
-    }
-
-    setRescuers([...rescuers, rescuer]);
-    return { success: true };
   };
 
   if (!currentRole) {
@@ -350,6 +299,7 @@ export default function App() {
         rescuerName={currentRescuerName}
         rescuerEmail={currentRescuerEmail}
         rescuerId={currentRescuerId}
+        rescuerDisplayId={currentRescuerDisplayId}
       />
     );
   }
