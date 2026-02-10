@@ -1,24 +1,14 @@
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
-import { logger } from "npm:hono/logger";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import * as kv from "./kv_store.tsx";
 
 const app = new Hono();
 const BASE_PATH = "/make-server-12d090c6";
 
-// Global error handler
-app.onError((err, c) => {
-  console.error("Server error:", err);
-  return c.json({ error: "Internal Server Error" }, 500);
-});
-
-// Enable logger
-app.use('*', logger(console.log));
-
 // Enable CORS for all routes and methods
 app.use(
-  "/*",
+  "*",
   cors({
     origin: "*",
     allowHeaders: ["Content-Type", "Authorization"],
@@ -27,6 +17,12 @@ app.use(
     maxAge: 600,
   }),
 );
+
+// Global error handler
+app.onError((err, c) => {
+  console.error("Server error:", err);
+  return c.json({ error: "Internal Server Error" }, 500);
+});
 
 // Health check endpoint
 app.get(`${BASE_PATH}/health`, (c) => {
