@@ -6,6 +6,61 @@ import * as kv from "./kv_store.tsx";
 const app = new Hono();
 const BASE_PATH = "/make-server-12d090c6";
 
+// Initialize the KV store table if it doesn't exist
+const initializeDatabase = async () => {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+    );
+
+    // Check if the table exists by attempting a simple query
+    const { error } = await supabase.from("kv_store_12d090c6").select("key").limit(1);
+    
+    if (error) {
+      console.error("⚠️  KV Store table not found. Creating table...");
+      console.error("If this fails, please create the table manually in your Supabase dashboard:");
+      console.error("SQL Editor → New Query → Run this:");
+      console.error(`
+        CREATE TABLE IF NOT EXISTS public.kv_store_12d090c6 (
+          key TEXT NOT NULL PRIMARY KEY,
+          value JSONB NOT NULL
+        );
+      `);
+      
+      // Try to create the table using raw SQL
+      const { error: createError } = await supabase.rpc('exec_sql', {
+        sql: `CREATE TABLE IF NOT EXISTS public.kv_store_12d090c6 (key TEXT NOT NULL PRIMARY KEY, value JSONB NOT NULL);`
+      });
+      
+      if (createError) {
+        console.error("Automatic table creation failed:", createError.message);
+        console.error("Please create the table manually using the SQL above.");
+      } else {
+        console.log("✅ Table kv_store_12d090c6 created successfully");
+      }
+    } else {
+      console.log("✅ Table kv_store_12d090c6 is ready");
+      console.log("📝 Note: To use separate tables, run /migration.sql in your own Supabase instance");
+    }
+  } catch (error) {
+    console.error("Database initialization error:", error);
+    console.error("\n📋 Manual Setup Required:");
+    console.error("1. Go to your Supabase dashboard");
+    console.error("2. Navigate to SQL Editor");
+    console.error("3. Run this SQL:");
+    console.error(`
+      CREATE TABLE IF NOT EXISTS public.kv_store_12d090c6 (
+        key TEXT NOT NULL PRIMARY KEY,
+        value JSONB NOT NULL
+      );
+    `);
+  }
+};
+
+// Initialize database on startup
+await initializeDatabase();
+
 // Enable CORS for all routes and methods
 app.use(
   "*",
@@ -33,14 +88,17 @@ app.get(`${BASE_PATH}/health`, (c) => {
 
 app.get(`${BASE_PATH}/requests`, async (c) => {
   try {
+    console.log("📥 Fetching requests from KV store...");
     const requests = await kv.getByPrefix("req_");
-    // Remove the prefix from the keys if needed, but getByPrefix returns values array? 
-    // kv_store.tsx description: "mget and getByPrefix return an array of values."
-    // So we just return the values.
+    console.log(`✅ Found ${requests.length} requests`);
     return c.json(requests);
   } catch (error) {
-    console.error("Error fetching requests:", error);
-    return c.json({ error: "Failed to fetch requests" }, 500);
+    console.error("❌ Error fetching requests:", error);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    // Return empty array instead of error to prevent app crash
+    console.log("⚠️  Returning empty array as fallback");
+    return c.json([]);
   }
 });
 
@@ -78,11 +136,20 @@ app.put(`${BASE_PATH}/requests/:id`, async (c) => {
 
 app.get(`${BASE_PATH}/rescuers`, async (c) => {
   try {
+    console.log("📥 Fetching rescuers from KV store...");
+    console.log("Environment check - SUPABASE_URL:", Deno.env.get('SUPABASE_URL') ? '✅ Set' : '❌ Missing');
+    console.log("Environment check - SUPABASE_SERVICE_ROLE_KEY:", Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ? '✅ Set' : '❌ Missing');
+    
     const rescuers = await kv.getByPrefix("rescuer_");
+    console.log(`✅ Found ${rescuers.length} rescuers`);
     return c.json(rescuers);
   } catch (error) {
-    console.error("Error fetching rescuers:", error);
-    return c.json({ error: "Failed to fetch rescuers" }, 500);
+    console.error("❌ Error fetching rescuers:", error);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    // Return empty array instead of error to prevent app crash
+    console.log("⚠️  Returning empty array as fallback");
+    return c.json([]);
   }
 });
 
@@ -149,7 +216,13 @@ app.post(`${BASE_PATH}/signup`, async (c) => {
         // Add a "display ID" or similar if needed to match legacy "jerin-r1" style
         // For now, we'll generate one or just use the UUID. 
         // Let's generate a friendly ID for the Admin UI if not provided.
-        displayId: `R-${data.user.id.substring(0, 6).toUpperCase()}`
+        displayId: `R-${data.user.id.substring(0, 6).toUpperCase()}`,
+        // Metadata fields
+        dataType: 'rescuer_profile',
+        accountSource: 'rescuer_signup',
+        createdAt: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        profileComplete: true,
       };
 
       await kv.set(`rescuer_${data.user.id}`, rescuerProfile);

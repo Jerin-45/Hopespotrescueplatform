@@ -28,6 +28,13 @@ export interface RescueRequest {
   trackingId?: string;
   rejectedBy?: string[]; // Track rescuers who rejected this case
   rejectionReasons?: { rescuerId: string; rescuerName: string; reason: string; timestamp: string }[]; // Track rejection reasons
+  // Metadata fields for better organization
+  dataType: 'helper_submission';
+  submissionSource: 'helper_dashboard';
+  createdBy: string; // Helper's name
+  createdByPhone: string; // Helper's phone for reference
+  lastModified: string;
+  modifiedBy?: string;
 }
 
 export interface RescuerAccount {
@@ -59,101 +66,72 @@ export default function App() {
 
   // Fetch data from server with retry
   const fetchData = async (retries = 3) => {
-    setLoading(true);
+    if (retries === 3) setLoading(true); // Only set loading on first attempt
+    
     try {
       // Fetch Requests
       const reqResponse = await fetch(`${SERVER_URL}/requests`, {
         headers: { 'Authorization': `Bearer ${publicAnonKey}` }
       });
+      
       if (reqResponse.ok) {
         const requestsData = await reqResponse.json();
-        setRescueRequests(requestsData || []);
+        setRescueRequests(Array.isArray(requestsData) ? requestsData : []);
       } else {
         console.warn(`Fetch requests failed: ${reqResponse.status} ${reqResponse.statusText}`);
+        // Try to parse the response anyway - server may return empty array on error
+        try {
+          const data = await reqResponse.json();
+          setRescueRequests(Array.isArray(data) ? data : []);
+        } catch {
+          setRescueRequests([]);
+        }
       }
 
       // Fetch Rescuers
       const rescuerResponse = await fetch(`${SERVER_URL}/rescuers`, {
         headers: { 'Authorization': `Bearer ${publicAnonKey}` }
       });
+      
       if (rescuerResponse.ok) {
         const rescuersData = await rescuerResponse.json();
-        setRescuers(rescuersData || []);
+        setRescuers(Array.isArray(rescuersData) ? rescuersData : []);
       } else {
-         console.warn(`Fetch rescuers failed: ${rescuerResponse.status} ${rescuerResponse.statusText}`);
+        console.warn(`Fetch rescuers failed: ${rescuerResponse.status} ${rescuerResponse.statusText}`);
+        // Try to parse the response anyway - server may return empty array on error
+        try {
+          const data = await rescuerResponse.json();
+          setRescuers(Array.isArray(data) ? data : []);
+        } catch {
+          setRescuers([]);
+        }
       }
+      
+      // If we got here, stop loading
+      setLoading(false);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error(`Fetch attempt ${4 - retries} failed:`, error);
       if (retries > 0) {
         console.log(`Retrying fetch... (${retries} attempts left)`);
         setTimeout(() => fetchData(retries - 1), 1000);
-      }
-    } finally {
-      if (retries === 0) {
+      } else {
+        // Final attempt failed, ensure we have empty arrays and stop loading
+        setRescueRequests([]);
+        setRescuers([]);
         setLoading(false);
-      } else if (loading) {
-         // Keep loading true if we are retrying? 
-         // Actually, if we retry, we want to keep loading.
-         // But if we succeed, we want to stop.
-         // Let's rely on the final retry to turn off loading.
-         // If a success happens, we need to turn off loading.
-         // My logic above is slightly flawed because if it succeeds, it hits finally and turns off loading?
-         // No, `fetchData` is async. The recursive call is inside `catch`.
-         // If success: `try` finishes, `finally` runs.
-         // If error: `catch` runs, triggers `setTimeout`. `finally` runs.
-         // This means `loading` flickers or turns off while waiting for retry.
-         // I should fix the loading state logic.
       }
-      // Simple fix: only turn off loading if we are NOT retrying immediately.
-      // But checking inside `finally` is tricky.
-      // I'll refactor the retry logic slightly.
     }
   };
 
-  const loadData = async () => {
-      setLoading(true);
-      let attempts = 3;
-      while (attempts > 0) {
-          try {
-              await Promise.all([
-                  fetch(`${SERVER_URL}/requests`, { headers: { 'Authorization': `Bearer ${publicAnonKey}` } })
-                      .then(async res => {
-                          if (res.ok) {
-                              const data = await res.json();
-                              setRescueRequests(data || []);
-                          } else {
-                              throw new Error(`Requests: ${res.status}`);
-                          }
-                      }),
-                  fetch(`${SERVER_URL}/rescuers`, { headers: { 'Authorization': `Bearer ${publicAnonKey}` } })
-                      .then(async res => {
-                          if (res.ok) {
-                              const data = await res.json();
-                              setRescuers(data || []);
-                          } else {
-                              throw new Error(`Rescuers: ${res.status}`);
-                          }
-                      })
-              ]);
-              break; // Success
-          } catch (error) {
-              console.error(`Fetch attempt ${4 - attempts} failed:`, error);
-              attempts--;
-              if (attempts > 0) await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-      }
-      setLoading(false);
-  };
-
   useEffect(() => {
-    loadData();
+    fetchData();
   }, []);
 
 
   const handleRoleSelect = (role: UserRole) => {
     setCurrentRole(role);
     // Refresh data when switching roles to ensure fresh state
-    if (role) loadData();
+    if (role) fetchData();
   };
 
   const handleBack = () => {
@@ -177,7 +155,7 @@ export default function App() {
       setIsAdminAuthenticated(true);
       setCurrentRole('admin');
       // Refresh rescuers list for admin
-      loadData();
+      fetchData();
       return true;
     }
     return false;
@@ -258,6 +236,12 @@ export default function App() {
       timestamp: new Date().toISOString(),
       status: 'pending',
       trackingId: generatedTrackingId,
+      // Metadata fields
+      dataType: 'helper_submission',
+      submissionSource: 'helper_dashboard',
+      createdBy: request.helperName,
+      createdByPhone: request.helperPhone,
+      lastModified: new Date().toISOString(),
     };
 
     try {
@@ -298,7 +282,13 @@ export default function App() {
     const previousRequests = [...rescueRequests];
     const updatedRequests = rescueRequests.map((req) =>
       req.id === id
-        ? { ...req, status, ...rescuerData }
+        ? { 
+            ...req, 
+            status, 
+            ...rescuerData,
+            lastModified: new Date().toISOString(),
+            modifiedBy: rescuerData?.assignedRescuer || 'system'
+          }
         : req
     );
     setRescueRequests(updatedRequests);
