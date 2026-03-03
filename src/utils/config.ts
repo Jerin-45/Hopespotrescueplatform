@@ -1,3 +1,0 @@
-// Configuration for the Hope Spot application
-export const projectId = "ljonhwzpsflecjyqimfz";
-export const publicAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqb25od3pwc2ZsZWNqeXFpbWZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MDUzMDAsImV4cCI6MjA4ODA4MTMwMH0.D8SQcrMdHHc7BEKSsrW7-WIW-cmT_Jj4xbCxRMVl2wg";

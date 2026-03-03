@@ -1,6 +1,49 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { RescueRequest, RescuerAccount } from '../App';
-import { serverApi } from '../utils/server-api';
+
+// ── Inline localStorage helpers (replaces /utils/local-storage.ts) ─────────
+const ls = {
+  get(key: string): any {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : null;
+    } catch {
+      return null;
+    }
+  },
+  set(key: string, value: any): void {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (err) {
+      console.error('localStorage write error:', err);
+      throw err;
+    }
+  },
+  getByPrefix(prefix: string): any[] {
+    try {
+      const results: any[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+          const item = localStorage.getItem(key);
+          if (item) results.push(JSON.parse(item));
+        }
+      }
+      return results;
+    } catch {
+      return [];
+    }
+  },
+  del(key: string): void {
+    try {
+      localStorage.removeItem(key);
+    } catch (err) {
+      console.error('localStorage delete error:', err);
+      throw err;
+    }
+  },
+};
+// ───────────────────────────────────────────────────────────────────────────
 
 interface DataContextType {
   rescueRequests: RescueRequest[];
@@ -25,27 +68,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch all entries from the KV store using prefix queries on the server
-      const [requestsData, rescuersData] = await Promise.all([
-        serverApi.getByPrefix('request:'),
-        serverApi.getByPrefix('rescuer:')
-      ]);
+      const requestsData = ls.getByPrefix('request:');
+      const rescuersData = ls.getByPrefix('rescuer:');
 
-      if (requestsData) {
-        const sortedRequests = (requestsData as RescueRequest[])
-          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        setRescueRequests(sortedRequests);
-      }
+      const sortedRequests = (requestsData as RescueRequest[])
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setRescueRequests(sortedRequests);
 
-      if (rescuersData) {
-        const sortedRescuers = (rescuersData as RescuerAccount[])
-          .sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime());
-        setRescuers(sortedRescuers);
-      }
-      
-      console.log('✅ Data synchronized from Server API');
+      const sortedRescuers = (rescuersData as RescuerAccount[])
+        .sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime());
+      setRescuers(sortedRescuers);
+
+      console.log('✅ Data synchronized from localStorage');
     } catch (error) {
-      console.error('❌ DataProvider fetch error from server:', error);
+      console.error('❌ DataProvider fetch error:', error);
       setRescueRequests([]);
       setRescuers([]);
     } finally {
@@ -61,22 +97,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const id = crypto.randomUUID();
     const trackingId = `TRK-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
     const key = `request:${id}`;
-    
+
     const requestRecord: RescueRequest = {
       ...request,
       id,
       trackingId,
       status: 'pending',
       timestamp: new Date().toISOString(),
-      lastModified: new Date().toISOString()
+      lastModified: new Date().toISOString(),
     };
 
     try {
-      await serverApi.set(key, requestRecord);
+      ls.set(key, requestRecord);
       await fetchData();
       return true;
     } catch (err) {
-      console.error('Error saving request via server:', err);
+      console.error('Error saving request to localStorage:', err);
       return false;
     }
   };
@@ -87,34 +123,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     rescuerData?: any
   ) => {
     const key = `request:${id}`;
-    
     try {
-      const currentData = await serverApi.get(key);
-      if (!currentData) throw new Error('Request not found on server');
+      const current = ls.get(key);
+      if (!current) throw new Error('Request not found');
 
-      const updatedRequest = {
-        ...currentData,
+      ls.set(key, {
+        ...current,
         status,
         ...(rescuerData || {}),
-        lastModified: new Date().toISOString()
-      };
-
-      await serverApi.set(key, updatedRequest);
+        lastModified: new Date().toISOString(),
+      });
       await fetchData();
     } catch (err) {
-      console.error('Error updating status via server:', err);
+      console.error('Error updating status in localStorage:', err);
       throw err;
     }
   };
 
   return (
-    <DataContext.Provider value={{ 
-      rescueRequests, 
-      rescuers, 
-      loading, 
+    <DataContext.Provider value={{
+      rescueRequests,
+      rescuers,
+      loading,
       refreshData: fetchData,
       addRescueRequest,
-      updateRequestStatus
+      updateRequestStatus,
     }}>
       {children}
     </DataContext.Provider>
@@ -123,8 +156,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
 export const useData = () => {
   const context = useContext(DataContext);
-  if (context === undefined) {
-    throw new Error('useData must be used within a DataProvider');
-  }
+  if (context === undefined) throw new Error('useData must be used within a DataProvider');
   return context;
 };
