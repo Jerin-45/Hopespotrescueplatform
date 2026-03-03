@@ -1,248 +1,74 @@
-import { Hono } from "npm:hono";
-import { cors } from "npm:hono/cors";
-import { createClient } from "jsr:@supabase/supabase-js@2";
-import * as kv from "./kv_store.tsx";
+import { Hono } from 'npm:hono';
+import { cors } from 'npm:hono/cors';
+import { logger } from 'npm:hono/logger';
+import * as kv from './kv_store.tsx';
 
 const app = new Hono();
-const BASE_PATH = "/make-server-12d090c6";
 
-// Initialize the KV store table if it doesn't exist
-const initializeDatabase = async () => {
+// Logger
+app.use('*', logger(console.log));
+
+// CORS middleware
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  exposeHeaders: ['Content-Length'],
+  maxAge: 600,
+}));
+
+const ROUTE_PREFIX = '/make-server-12d090c6';
+
+// Health check
+app.get(`${ROUTE_PREFIX}/health`, (c) => c.json({ status: 'ok' }));
+
+// Get value by key
+app.get(`${ROUTE_PREFIX}/kv/:key`, async (c) => {
+  const key = c.req.param('key');
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
-    );
-
-    // Check if the table exists by attempting a simple query
-    const { error } = await supabase.from("kv_store_12d090c6").select("key").limit(1);
-    
-    if (error) {
-      console.error("⚠️  KV Store table not found. Creating table...");
-      console.error("If this fails, please create the table manually in your Supabase dashboard:");
-      console.error("SQL Editor → New Query → Run this:");
-      console.error(`
-        CREATE TABLE IF NOT EXISTS public.kv_store_12d090c6 (
-          key TEXT NOT NULL PRIMARY KEY,
-          value JSONB NOT NULL
-        );
-      `);
-      
-      // Try to create the table using raw SQL
-      const { error: createError } = await supabase.rpc('exec_sql', {
-        sql: `CREATE TABLE IF NOT EXISTS public.kv_store_12d090c6 (key TEXT NOT NULL PRIMARY KEY, value JSONB NOT NULL);`
-      });
-      
-      if (createError) {
-        console.error("Automatic table creation failed:", createError.message);
-        console.error("Please create the table manually using the SQL above.");
-      } else {
-        console.log("✅ Table kv_store_12d090c6 created successfully");
-      }
-    } else {
-      console.log("✅ Table kv_store_12d090c6 is ready");
-      console.log("📝 Note: To use separate tables, run /migration.sql in your own Supabase instance");
-    }
-  } catch (error) {
-    console.error("Database initialization error:", error);
-    console.error("\n📋 Manual Setup Required:");
-    console.error("1. Go to your Supabase dashboard");
-    console.error("2. Navigate to SQL Editor");
-    console.error("3. Run this SQL:");
-    console.error(`
-      CREATE TABLE IF NOT EXISTS public.kv_store_12d090c6 (
-        key TEXT NOT NULL PRIMARY KEY,
-        value JSONB NOT NULL
-      );
-    `);
-  }
-};
-
-// Initialize database on startup
-await initializeDatabase();
-
-// Enable CORS for all routes and methods
-app.use(
-  "*",
-  cors({
-    origin: "*",
-    allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    exposeHeaders: ["Content-Length"],
-    maxAge: 600,
-  }),
-);
-
-// Global error handler
-app.onError((err, c) => {
-  console.error("Server error:", err);
-  return c.json({ error: "Internal Server Error" }, 500);
-});
-
-// Health check endpoint
-app.get(`${BASE_PATH}/health`, (c) => {
-  return c.json({ status: "ok" });
-});
-
-// --- Requests ---
-
-app.get(`${BASE_PATH}/requests`, async (c) => {
-  try {
-    console.log("📥 Fetching requests from KV store...");
-    const requests = await kv.getByPrefix("req_");
-    console.log(`✅ Found ${requests.length} requests`);
-    return c.json(requests);
-  } catch (error) {
-    console.error("❌ Error fetching requests:", error);
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
-    // Return empty array instead of error to prevent app crash
-    console.log("⚠️  Returning empty array as fallback");
-    return c.json([]);
+    const value = await kv.get(key);
+    return c.json({ value });
+  } catch (err) {
+    console.error(`Error getting key ${key}:`, err);
+    return c.json({ error: err.message }, 500);
   }
 });
 
-app.post(`${BASE_PATH}/requests`, async (c) => {
+// Set value by key
+app.post(`${ROUTE_PREFIX}/kv/:key`, async (c) => {
+  const key = c.req.param('key');
   try {
     const body = await c.req.json();
-    if (!body.id) {
-      return c.json({ error: "ID is required" }, 400);
-    }
-    await kv.set(`req_${body.id}`, body);
-    return c.json({ success: true, data: body });
-  } catch (error) {
-    console.error("Error creating request:", error);
-    return c.json({ error: "Failed to create request" }, 500);
+    await kv.set(key, body.value);
+    return c.json({ success: true });
+  } catch (err) {
+    console.error(`Error setting key ${key}:`, err);
+    return c.json({ error: err.message }, 500);
   }
 });
 
-app.put(`${BASE_PATH}/requests/:id`, async (c) => {
+// Get values by prefix
+app.get(`${ROUTE_PREFIX}/kv/prefix/:prefix`, async (c) => {
+  const prefix = c.req.param('prefix');
   try {
-    const id = c.req.param("id");
-    const body = await c.req.json();
-    
-    // Ensure the ID in body matches the URL param (or set it)
-    const updatedRequest = { ...body, id };
-    
-    await kv.set(`req_${id}`, updatedRequest);
-    return c.json({ success: true, data: updatedRequest });
-  } catch (error) {
-    console.error("Error updating request:", error);
-    return c.json({ error: "Failed to update request" }, 500);
+    const values = await kv.getByPrefix(prefix);
+    return c.json({ values });
+  } catch (err) {
+    console.error(`Error getting prefix ${prefix}:`, err);
+    return c.json({ error: err.message }, 500);
   }
 });
 
-// --- Rescuers ---
-
-app.get(`${BASE_PATH}/rescuers`, async (c) => {
+// Delete value by key
+app.delete(`${ROUTE_PREFIX}/kv/:key`, async (c) => {
+  const key = c.req.param('key');
   try {
-    console.log("📥 Fetching rescuers from KV store...");
-    console.log("Environment check - SUPABASE_URL:", Deno.env.get('SUPABASE_URL') ? '✅ Set' : '❌ Missing');
-    console.log("Environment check - SUPABASE_SERVICE_ROLE_KEY:", Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ? '✅ Set' : '❌ Missing');
-    
-    const rescuers = await kv.getByPrefix("rescuer_");
-    console.log(`✅ Found ${rescuers.length} rescuers`);
-    return c.json(rescuers);
-  } catch (error) {
-    console.error("❌ Error fetching rescuers:", error);
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
-    // Return empty array instead of error to prevent app crash
-    console.log("⚠️  Returning empty array as fallback");
-    return c.json([]);
+    await kv.del(key);
+    return c.json({ success: true });
+  } catch (err) {
+    console.error(`Error deleting key ${key}:`, err);
+    return c.json({ error: err.message }, 500);
   }
 });
 
-app.post(`${BASE_PATH}/rescuers`, async (c) => {
-  try {
-    const body = await c.req.json();
-    if (!body.id) {
-      return c.json({ error: "ID is required" }, 400);
-    }
-    await kv.set(`rescuer_${body.id}`, body);
-    return c.json({ success: true, data: body });
-  } catch (error) {
-    console.error("Error creating rescuer profile:", error);
-    return c.json({ error: "Failed to create rescuer profile" }, 500);
-  }
-});
-
-// --- Auth ---
-
-app.post(`${BASE_PATH}/signup`, async (c) => {
-  try {
-    const { email, password, name, phone, address } = await c.req.json();
-    
-    if (!email || !password) {
-      return c.json({ error: "Email and password are required" }, 400);
-    }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
-    );
-
-    // Create auth user
-    const { data, error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      user_metadata: { name },
-      email_confirm: true // Automatically confirm email
-    });
-
-    if (error) {
-      // Check for email exists error code (can vary slightly by version/API)
-      // The provided error object has code: "email_exists"
-      // @ts-ignore
-      if (error.code === "email_exists" || error.message?.includes("already been registered")) {
-        console.warn("Signup attempt for existing email:", email);
-        return c.json({ error: "A user with this email address has already been registered" }, 409);
-      }
-      
-      console.error("Supabase auth error:", error);
-      return c.json({ error: error.message }, 400);
-    }
-
-    if (data.user) {
-      // Create rescuer profile in KV store
-      // We use the Auth User ID as the profile ID for consistency
-      const rescuerProfile = {
-        id: data.user.id,
-        email,
-        name,
-        phone,
-        address,
-        registeredAt: new Date().toISOString(),
-        // Add a "display ID" or similar if needed to match legacy "jerin-r1" style
-        // For now, we'll generate one or just use the UUID. 
-        // Let's generate a friendly ID for the Admin UI if not provided.
-        displayId: `R-${data.user.id.substring(0, 6).toUpperCase()}`,
-        // Metadata fields
-        dataType: 'rescuer_profile',
-        accountSource: 'rescuer_signup',
-        createdAt: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        profileComplete: true,
-      };
-
-      await kv.set(`rescuer_${data.user.id}`, rescuerProfile);
-      
-      return c.json({ success: true, user: data.user, profile: rescuerProfile });
-    }
-
-    return c.json({ error: "User creation failed without error" }, 500);
-
-  } catch (error) {
-    console.error("Signup error:", error);
-    return c.json({ error: "Internal server error during signup" }, 500);
-  }
-});
-
-Deno.serve(async (req) => {
-  try {
-    return await app.fetch(req);
-  } catch (error) {
-    console.error("Critical server error:", error);
-    return new Response("Internal Server Error", { status: 500 });
-  }
-});
+Deno.serve(app.fetch);
