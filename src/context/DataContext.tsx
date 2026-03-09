@@ -1,56 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { RescueRequest, RescuerAccount } from '../App';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
-// ── Inline localStorage helpers (replaces /utils/local-storage.ts) ─────────
-const ls = {
-  get(key: string): any {
-    try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
-    } catch {
-      return null;
-    }
-  },
-  set(key: string, value: any): void {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (err) {
-      console.error('localStorage write error:', err);
-      throw err;
-    }
-  },
-  getByPrefix(prefix: string): any[] {
-    try {
-      const results: any[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(prefix)) {
-          const item = localStorage.getItem(key);
-          if (item) results.push(JSON.parse(item));
-        }
-      }
-      return results;
-    } catch {
-      return [];
-    }
-  },
-  del(key: string): void {
-    try {
-      localStorage.removeItem(key);
-    } catch (err) {
-      console.error('localStorage delete error:', err);
-      throw err;
-    }
-  },
+// ── Server API config ─────────────────────────────────────────────────────────
+const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-12d090c6`;
+const HEADERS = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${publicAnonKey}`,
 };
-// ───────────────────────────────────────────────────────────────────────────
 
+// ── Context types ─────────────────────────────────────────────────────────────
 interface DataContextType {
   rescueRequests: RescueRequest[];
   rescuers: RescuerAccount[];
   loading: boolean;
   refreshData: () => Promise<void>;
-  addRescueRequest: (request: Omit<RescueRequest, 'id' | 'timestamp' | 'status'>) => Promise<boolean>;
+  addRescueRequest: (
+    request: Omit<RescueRequest, 'id' | 'timestamp' | 'status'>
+  ) => Promise<boolean>;
   updateRequestStatus: (
     id: string,
     status: RescueRequest['status'],
@@ -60,28 +27,45 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
+// ── Provider ──────────────────────────────────────────────────────────────────
 export function DataProvider({ children }: { children: ReactNode }) {
   const [rescueRequests, setRescueRequests] = useState<RescueRequest[]>([]);
   const [rescuers, setRescuers] = useState<RescuerAccount[]>([]);
   const [loading, setLoading] = useState(false);
 
+  /**
+   * fetchData – reads from:
+   *   • case_details table  → GET /cases
+   *   • rescuer_register table → GET /rescuers
+   */
   const fetchData = async () => {
     setLoading(true);
     try {
-      const requestsData = ls.getByPrefix('request:');
-      const rescuersData = ls.getByPrefix('rescuer:');
+      const [casesRes, rescuersRes] = await Promise.all([
+        fetch(`${BASE_URL}/cases`, { headers: HEADERS }),
+        fetch(`${BASE_URL}/rescuers`, { headers: HEADERS }),
+      ]);
 
-      const sortedRequests = (requestsData as RescueRequest[])
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setRescueRequests(sortedRequests);
+      if (!casesRes.ok) {
+        const err = await casesRes.json().catch(() => ({}));
+        throw new Error(`cases endpoint error: ${err.error || casesRes.status}`);
+      }
+      if (!rescuersRes.ok) {
+        const err = await rescuersRes.json().catch(() => ({}));
+        throw new Error(`rescuers endpoint error: ${err.error || rescuersRes.status}`);
+      }
 
-      const sortedRescuers = (rescuersData as RescuerAccount[])
-        .sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime());
-      setRescuers(sortedRescuers);
+      const casesData    = await casesRes.json();
+      const rescuersData = await rescuersRes.json();
 
-      console.log('✅ Data synchronized from localStorage');
+      setRescueRequests((casesData.data    as RescueRequest[])  || []);
+      setRescuers(      (rescuersData.data as RescuerAccount[]) || []);
+
+      console.log(
+        `✅ DataContext synced from Supabase — cases: ${(casesData.data || []).length}, rescuers: ${(rescuersData.data || []).length}`
+      );
     } catch (error) {
-      console.error('❌ DataProvider fetch error:', error);
+      console.error('❌ DataContext fetchData error:', error);
       setRescueRequests([]);
       setRescuers([]);
     } finally {
@@ -93,69 +77,90 @@ export function DataProvider({ children }: { children: ReactNode }) {
     fetchData();
   }, []);
 
-  const addRescueRequest = async (request: Omit<RescueRequest, 'id' | 'timestamp' | 'status'>) => {
-    const id = crypto.randomUUID();
-    const trackingId = `TRK-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-    const key = `request:${id}`;
-
-    const requestRecord: RescueRequest = {
-      ...request,
-      id,
-      trackingId,
-      status: 'pending',
-      timestamp: new Date().toISOString(),
-      lastModified: new Date().toISOString(),
-    };
-
+  /**
+   * addRescueRequest – writes to:
+   *   • helper_submitted table
+   *   • case_details table
+   *   (both written atomically in POST /cases on the server)
+   */
+  const addRescueRequest = async (
+    request: Omit<RescueRequest, 'id' | 'timestamp' | 'status'>
+  ): Promise<boolean> => {
     try {
-      ls.set(key, requestRecord);
+      const res = await fetch(`${BASE_URL}/cases`, {
+        method:  'POST',
+        headers: HEADERS,
+        body:    JSON.stringify(request),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(`POST /cases failed: ${err.error || res.status}`);
+      }
+
+      const result = await res.json();
+      console.log('✅ helper_submitted + case_details records created:', result.data?.id);
       await fetchData();
       return true;
     } catch (err) {
-      console.error('Error saving request to localStorage:', err);
+      console.error('❌ Error adding rescue request:', err);
       return false;
     }
   };
 
+  /**
+   * updateRequestStatus – writes to:
+   *   • case_details table       (always)
+   *   • rescuer_assignment table (when a rescuerId is present in rescuerData)
+   */
   const updateRequestStatus = async (
     id: string,
     status: RescueRequest['status'],
     rescuerData?: any
-  ) => {
-    const key = `request:${id}`;
+  ): Promise<void> => {
     try {
-      const current = ls.get(key);
-      if (!current) throw new Error('Request not found');
+      const payload = { status, ...(rescuerData || {}) };
 
-      ls.set(key, {
-        ...current,
-        status,
-        ...(rescuerData || {}),
-        lastModified: new Date().toISOString(),
+      const res = await fetch(`${BASE_URL}/cases/${id}`, {
+        method:  'PUT',
+        headers: HEADERS,
+        body:    JSON.stringify(payload),
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(`PUT /cases/${id} failed: ${err.error || res.status}`);
+      }
+
+      console.log(`✅ case_details[${id}] status → ${status}`);
       await fetchData();
     } catch (err) {
-      console.error('Error updating status in localStorage:', err);
+      console.error('❌ Error updating request status:', err);
       throw err;
     }
   };
 
   return (
-    <DataContext.Provider value={{
-      rescueRequests,
-      rescuers,
-      loading,
-      refreshData: fetchData,
-      addRescueRequest,
-      updateRequestStatus,
-    }}>
+    <DataContext.Provider
+      value={{
+        rescueRequests,
+        rescuers,
+        loading,
+        refreshData: fetchData,
+        addRescueRequest,
+        updateRequestStatus,
+      }}
+    >
       {children}
     </DataContext.Provider>
   );
 }
 
+// ── Hook ──────────────────────────────────────────────────────────────────────
 export const useData = () => {
   const context = useContext(DataContext);
-  if (context === undefined) throw new Error('useData must be used within a DataProvider');
+  if (context === undefined) {
+    throw new Error('useData must be used within a DataProvider');
+  }
   return context;
 };

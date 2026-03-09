@@ -6,8 +6,16 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { RescuerAuth } from './components/RescuerAuth';
 import { AdminLogin } from './components/AdminLogin';
 import { DataProvider, useData } from './context/DataContext';
+import { projectId, publicAnonKey } from './utils/supabase/info';
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── Server API config ─────────────────────────────────────────────────────────
+const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-12d090c6`;
+const HEADERS = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${publicAnonKey}`,
+};
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 export type UserRole = 'helper' | 'rescuer' | 'admin' | null;
 
 export interface RescueRequest {
@@ -26,7 +34,12 @@ export interface RescueRequest {
   rescuerNotes?: string;
   trackingId?: string;
   rejectedBy?: string[];
-  rejectionReasons?: { rescuerId: string; rescuerName: string; reason: string; timestamp: string }[];
+  rejectionReasons?: {
+    rescuerId: string;
+    rescuerName: string;
+    reason: string;
+    timestamp: string;
+  }[];
   lastModified: string;
   modifiedBy?: string;
 }
@@ -46,107 +59,18 @@ export interface RescuerAccount {
   badge_id?: string;
 }
 
-// ── Inline localStorage helpers ────────────────────────────────────────────
-const ls = {
-  get(key: string): any {
-    try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
-    } catch {
-      return null;
-    }
-  },
-  set(key: string, value: any): void {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (err) {
-      console.error('localStorage write error:', err);
-      throw err;
-    }
-  },
-  getByPrefix(prefix: string): any[] {
-    try {
-      const results: any[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(prefix)) {
-          const item = localStorage.getItem(key);
-          if (item) results.push(JSON.parse(item));
-        }
-      }
-      return results;
-    } catch {
-      return [];
-    }
-  },
-};
-
-// ── Inline auth helpers (SHA-256, no external deps) ──────────────────��────
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-let currentSession: { userId: string; email: string } | null = null;
-
-const authService = {
-  async signUp(email: string, password: string) {
-    try {
-      const existing = (ls.getByPrefix('rescuer:') as RescuerAccount[]).find(r => r.email === email);
-      if (existing) return { data: null, error: { message: 'User already exists' } };
-
-      const userId = crypto.randomUUID();
-      const passwordHash = await hashPassword(password);
-
-      ls.set(`auth:${email}`, { userId, email, passwordHash, createdAt: new Date().toISOString() });
-      currentSession = { userId, email };
-
-      return { data: { user: { id: userId, email } }, error: null };
-    } catch (err: any) {
-      return { data: null, error: { message: err.message || 'Registration failed' } };
-    }
-  },
-
-  async signIn(email: string, password: string) {
-    try {
-      const authData = ls.get(`auth:${email}`);
-      if (!authData) return { data: null, error: { message: 'Invalid email or password' } };
-
-      const passwordHash = await hashPassword(password);
-      if (authData.passwordHash !== passwordHash)
-        return { data: null, error: { message: 'Invalid email or password' } };
-
-      currentSession = { userId: authData.userId, email: authData.email };
-      return { data: { user: { id: authData.userId, email: authData.email } }, error: null };
-    } catch (err: any) {
-      return { data: null, error: { message: err.message || 'Login failed' } };
-    }
-  },
-
-  signOut() {
-    currentSession = null;
-    return Promise.resolve();
-  },
-
-  getSession() {
-    return currentSession;
-  },
-};
-// ───────────────────────────────────────────────────────────────────────────
-
+// ── App Content ───────────────────────────────────────────────────────────────
 function AppContent() {
-  const [currentRole, setCurrentRole] = useState<UserRole>(null);
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [currentRole, setCurrentRole]                       = useState<UserRole>(null);
+  const [isAdminAuthenticated, setIsAdminAuthenticated]     = useState(false);
   const [isRescuerAuthenticated, setIsRescuerAuthenticated] = useState(false);
-  const [currentRescuerName, setCurrentRescuerName] = useState('');
-  const [currentRescuerEmail, setCurrentRescuerEmail] = useState('');
-  const [currentRescuerId, setCurrentRescuerId] = useState('');
+  const [currentRescuerName, setCurrentRescuerName]         = useState('');
+  const [currentRescuerEmail, setCurrentRescuerEmail]       = useState('');
+  const [currentRescuerId, setCurrentRescuerId]             = useState('');
   const [currentRescuerDisplayId, setCurrentRescuerDisplayId] = useState('');
 
-  const { rescueRequests, rescuers, refreshData, addRescueRequest, updateRequestStatus } = useData();
+  const { rescueRequests, rescuers, refreshData, addRescueRequest, updateRequestStatus } =
+    useData();
 
   const handleRoleSelect = (role: UserRole) => {
     setCurrentRole(role);
@@ -162,7 +86,6 @@ function AppContent() {
       setCurrentRescuerEmail('');
       setCurrentRescuerId('');
       setCurrentRescuerDisplayId('');
-      authService.signOut();
     }
   };
 
@@ -176,72 +99,83 @@ function AppContent() {
     return false;
   };
 
-  const handleRescuerLogin = async (identifier: string, password: string) => {
+  /**
+   * handleRescuerLogin
+   * Calls POST /auth/login on the server.
+   * The server verifies credentials against the auth namespace and returns the
+   * matching profile from the rescuer_register table.
+   */
+  const handleRescuerLogin = async (
+    identifier: string,
+    password: string
+  ): Promise<{ success: boolean; name?: string; error?: string }> => {
     try {
-      const { data, error } = await authService.signIn(identifier, password);
-      if (error) return { success: false, error: error.message };
+      const res = await fetch(`${BASE_URL}/auth/login`, {
+        method:  'POST',
+        headers: HEADERS,
+        body:    JSON.stringify({ email: identifier, password }),
+      });
 
-      if (data?.user) {
-        const rescuerData = rescuers.find(r => r.email === identifier);
-        if (!rescuerData) return { success: false, error: 'Rescuer profile not found' };
+      const result = await res.json();
 
-        setIsRescuerAuthenticated(true);
-        setCurrentRescuerName(rescuerData.name || '');
-        setCurrentRescuerEmail(rescuerData.email);
-        setCurrentRescuerId(rescuerData.id);
-        setCurrentRescuerDisplayId(rescuerData.badge_id || '');
-        setCurrentRole('rescuer');
-        return { success: true, name: rescuerData.name };
+      if (!res.ok) {
+        console.error('Login error from server:', result.error);
+        return { success: false, error: result.error || 'Invalid email or password' };
       }
-      return { success: false, error: 'Login failed' };
+
+      const { profile } = result.data;
+      setIsRescuerAuthenticated(true);
+      setCurrentRescuerName(profile.name || '');
+      setCurrentRescuerEmail(profile.email);
+      setCurrentRescuerId(profile.id);
+      setCurrentRescuerDisplayId(profile.badge_id || profile.displayId || '');
+      setCurrentRole('rescuer');
+      return { success: true, name: profile.name };
     } catch (err) {
-      console.error('Login error:', err);
-      return { success: false, error: 'Login error' };
+      console.error('Login network/parse error:', err);
+      return { success: false, error: 'Login error. Please try again.' };
     }
   };
 
+  /**
+   * handleRescuerRegister
+   * Calls POST /rescuers on the server.
+   * The server writes to:
+   *   • rescuer_register table
+   *   • rescuer_directory table
+   *   • auth namespace (hashed password)
+   */
   const handleRescuerRegister = async (
     email: string,
     password: string,
     name: string,
     phone: string,
     address: string
-  ) => {
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { data: authData, error: authError } = await authService.signUp(email, password);
-      if (authError) return { success: false, error: authError.message };
+      const res = await fetch(`${BASE_URL}/rescuers`, {
+        method:  'POST',
+        headers: HEADERS,
+        body:    JSON.stringify({ email, password, name, phone, address }),
+      });
 
-      if (authData?.user) {
-        const id = crypto.randomUUID();
-        const badge_id = `RSC-${Math.floor(1000 + Math.random() * 9000)}`;
+      const result = await res.json();
 
-        const profile: RescuerAccount = {
-          id,
-          auth_user_id: authData.user.id,
-          name,
-          email,
-          phone,
-          address,
-          badge_id,
-          registeredAt: new Date().toISOString(),
-          profileComplete: true,
-        };
-
-        try {
-          ls.set(`rescuer:${id}`, profile);
-          await refreshData();
-          return { success: true };
-        } catch (storageError: any) {
-          return { success: false, error: storageError.message };
-        }
+      if (!res.ok) {
+        console.error('Registration error from server:', result.error);
+        return { success: false, error: result.error || 'Registration failed' };
       }
 
-      return { success: false, error: 'Registration failed' };
+      console.log('✅ Rescuer registered:', result.data?.id, '| badge:', result.data?.badge_id);
+      await refreshData();
+      return { success: true };
     } catch (err) {
-      console.error('Registration error:', err);
-      return { success: false, error: 'Registration error' };
+      console.error('Registration network/parse error:', err);
+      return { success: false, error: 'Registration error. Please try again.' };
     }
   };
+
+  // ── Routing ─────────────────────────────────────────────────────────────────
 
   if (!currentRole) return <LandingPage onRoleSelect={handleRoleSelect} />;
 
@@ -251,7 +185,7 @@ function AppContent() {
         onBack={handleBack}
         onSubmitRequest={async (req) => {
           const success = await addRescueRequest(req);
-          if (!success) alert('Failed to submit request');
+          if (!success) alert('Failed to submit request. Please try again.');
         }}
         requests={rescueRequests}
       />
@@ -298,6 +232,7 @@ function AppContent() {
   return null;
 }
 
+// ── Root export ───────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <DataProvider>
