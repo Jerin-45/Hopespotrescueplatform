@@ -5,15 +5,7 @@ import { RescuerDashboard } from './components/RescuerDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { RescuerAuth } from './components/RescuerAuth';
 import { AdminLogin } from './components/AdminLogin';
-import { DataProvider, useData } from './context/DataContext';
-import { projectId, publicAnonKey } from './utils/supabase/info';
-
-// ── Server API config ─────────────────────────────────────────────────────────
-const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-12d090c6`;
-const HEADERS = {
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${publicAnonKey}`,
-};
+import { DataProvider, useData, lsGet, lsSet, LS } from './context/DataContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type UserRole = 'helper' | 'rescuer' | 'admin' | null;
@@ -59,14 +51,84 @@ export interface RescuerAccount {
   badge_id?: string;
 }
 
+// ── Auth helpers (localStorage + SHA-256) ─────────────────────────────────────
+async function hashPassword(password: string): Promise<string> {
+  const data = new TextEncoder().encode(password);
+  const buf  = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+interface AuthRecord {
+  userId:       string;
+  email:        string;
+  passwordHash: string;
+  createdAt:    string;
+}
+
+async function authLogin(
+  email: string,
+  password: string
+): Promise<{ success: boolean; profile?: RescuerAccount; error?: string }> {
+  const authMap = lsGet<Record<string, AuthRecord>>(LS.AUTH, {});
+  const auth    = authMap[email.toLowerCase()];
+  if (!auth) return { success: false, error: 'Invalid email or password' };
+
+  const hash = await hashPassword(password);
+  if (auth.passwordHash !== hash) return { success: false, error: 'Invalid email or password' };
+
+  const rescuers = lsGet<RescuerAccount[]>(LS.RESCUERS, []);
+  const profile  = rescuers.find(r => r.id === auth.userId);
+  if (!profile) return { success: false, error: 'Rescuer profile not found' };
+
+  return { success: true, profile };
+}
+
+async function authRegister(
+  email: string,
+  password: string,
+  name: string,
+  phone: string,
+  address: string
+): Promise<{ success: boolean; error?: string }> {
+  const authMap = lsGet<Record<string, AuthRecord>>(LS.AUTH, {});
+  if (authMap[email.toLowerCase()]) return { success: false, error: 'Email already registered' };
+
+  const id          = crypto.randomUUID();
+  const badge_id    = `RSC-${Math.floor(1000 + Math.random() * 9000)}`;
+  const passwordHash = await hashPassword(password);
+  const now         = new Date().toISOString();
+
+  // auth namespace
+  authMap[email.toLowerCase()] = { userId: id, email, passwordHash, createdAt: now };
+  lsSet(LS.AUTH, authMap);
+
+  // rescuer_register record
+  const rescuerRecord: RescuerAccount = {
+    id, email, name, phone, address, badge_id,
+    displayId:       badge_id,
+    registeredAt:    now,
+    profileComplete: true,
+  };
+  const rescuers = lsGet<RescuerAccount[]>(LS.RESCUERS, []);
+  lsSet(LS.RESCUERS, [rescuerRecord, ...rescuers]);
+
+  // rescuer_directory record (public fields only)
+  const directory = lsGet<any[]>(LS.DIRECTORY, []);
+  lsSet(LS.DIRECTORY, [{ id, name, email, phone, address, badge_id, displayId: badge_id, registeredAt: now }, ...directory]);
+
+  return { success: true };
+}
+
 // ── App Content ───────────────────────────────────────────────────────────────
 function AppContent() {
-  const [currentRole, setCurrentRole]                       = useState<UserRole>(null);
-  const [isAdminAuthenticated, setIsAdminAuthenticated]     = useState(false);
-  const [isRescuerAuthenticated, setIsRescuerAuthenticated] = useState(false);
-  const [currentRescuerName, setCurrentRescuerName]         = useState('');
-  const [currentRescuerEmail, setCurrentRescuerEmail]       = useState('');
-  const [currentRescuerId, setCurrentRescuerId]             = useState('');
+  const [currentRole, setCurrentRole]                         = useState<UserRole>(null);
+  const [isAdminAuthenticated, setIsAdminAuthenticated]       = useState(false);
+  const [isRescuerAuthenticated, setIsRescuerAuthenticated]   = useState(false);
+  const [currentRescuerName, setCurrentRescuerName]           = useState('');
+  const [currentRescuerEmail, setCurrentRescuerEmail]         = useState('');
+  const [currentRescuerId, setCurrentRescuerId]               = useState('');
   const [currentRescuerDisplayId, setCurrentRescuerDisplayId] = useState('');
 
   const { rescueRequests, rescuers, refreshData, addRescueRequest, updateRequestStatus } =
@@ -99,52 +161,23 @@ function AppContent() {
     return false;
   };
 
-  /**
-   * handleRescuerLogin
-   * Calls POST /auth/login on the server.
-   * The server verifies credentials against the auth namespace and returns the
-   * matching profile from the rescuer_register table.
-   */
   const handleRescuerLogin = async (
     identifier: string,
     password: string
   ): Promise<{ success: boolean; name?: string; error?: string }> => {
-    try {
-      const res = await fetch(`${BASE_URL}/auth/login`, {
-        method:  'POST',
-        headers: HEADERS,
-        body:    JSON.stringify({ email: identifier, password }),
-      });
+    const result = await authLogin(identifier, password);
+    if (!result.success) return { success: false, error: result.error };
 
-      const result = await res.json();
-
-      if (!res.ok) {
-        console.error('Login error from server:', result.error);
-        return { success: false, error: result.error || 'Invalid email or password' };
-      }
-
-      const { profile } = result.data;
-      setIsRescuerAuthenticated(true);
-      setCurrentRescuerName(profile.name || '');
-      setCurrentRescuerEmail(profile.email);
-      setCurrentRescuerId(profile.id);
-      setCurrentRescuerDisplayId(profile.badge_id || profile.displayId || '');
-      setCurrentRole('rescuer');
-      return { success: true, name: profile.name };
-    } catch (err) {
-      console.error('Login network/parse error:', err);
-      return { success: false, error: 'Login error. Please try again.' };
-    }
+    const p = result.profile!;
+    setIsRescuerAuthenticated(true);
+    setCurrentRescuerName(p.name || '');
+    setCurrentRescuerEmail(p.email);
+    setCurrentRescuerId(p.id);
+    setCurrentRescuerDisplayId(p.badge_id || p.displayId || '');
+    setCurrentRole('rescuer');
+    return { success: true, name: p.name };
   };
 
-  /**
-   * handleRescuerRegister
-   * Calls POST /rescuers on the server.
-   * The server writes to:
-   *   • rescuer_register table
-   *   • rescuer_directory table
-   *   • auth namespace (hashed password)
-   */
   const handleRescuerRegister = async (
     email: string,
     password: string,
@@ -152,30 +185,12 @@ function AppContent() {
     phone: string,
     address: string
   ): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await fetch(`${BASE_URL}/rescuers`, {
-        method:  'POST',
-        headers: HEADERS,
-        body:    JSON.stringify({ email, password, name, phone, address }),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        console.error('Registration error from server:', result.error);
-        return { success: false, error: result.error || 'Registration failed' };
-      }
-
-      console.log('✅ Rescuer registered:', result.data?.id, '| badge:', result.data?.badge_id);
-      await refreshData();
-      return { success: true };
-    } catch (err) {
-      console.error('Registration network/parse error:', err);
-      return { success: false, error: 'Registration error. Please try again.' };
-    }
+    const result = await authRegister(email, password, name, phone, address);
+    if (result.success) refreshData();
+    return result;
   };
 
-  // ── Routing ─────────────────────────────────────────────────────────────────
+  // ── Routing ──────────────────────────────────────────────────────────────────
 
   if (!currentRole) return <LandingPage onRoleSelect={handleRoleSelect} />;
 
