@@ -95,10 +95,10 @@ async function authRegister(
   const authMap = lsGet<Record<string, AuthRecord>>(LS.AUTH, {});
   if (authMap[email.toLowerCase()]) return { success: false, error: 'Email already registered' };
 
-  const id          = crypto.randomUUID();
-  const badge_id    = `RSC-${Math.floor(1000 + Math.random() * 9000)}`;
+  const id           = crypto.randomUUID();
+  const badge_id     = `RSC-${Math.floor(1000 + Math.random() * 9000)}`;
   const passwordHash = await hashPassword(password);
-  const now         = new Date().toISOString();
+  const now          = new Date().toISOString();
 
   // auth namespace
   authMap[email.toLowerCase()] = { userId: id, email, passwordHash, createdAt: now };
